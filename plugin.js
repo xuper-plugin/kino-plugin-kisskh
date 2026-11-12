@@ -3,6 +3,8 @@ var WORDS = {
   es: {
     notFound: "No encontr\xE9 este t\xEDtulo en KissKH.",
     tabHome: "Inicio",
+    heroTitle: "KissKH",
+    heroText: "Doramas, series, pel\xEDculas y anime asi\xE1ticos con subt\xEDtulos",
     tabDramas: "Dramas",
     tabMovies: "Pel\xEDculas",
     tabAnime: "Anime",
@@ -61,6 +63,8 @@ var WORDS = {
   en: {
     notFound: "I could not find this title on KissKH.",
     tabHome: "Home",
+    heroTitle: "KissKH",
+    heroText: "Asian dramas, series, movies and anime with subtitles",
     tabDramas: "Dramas",
     tabMovies: "Movies",
     tabAnime: "Anime",
@@ -298,11 +302,14 @@ var TABS = [
   { id: "peliculas", labelKey: "tabMovies", type: 2 },
   { id: "anime", labelKey: "tabAnime", type: 3 }
 ];
+var HERO_IMAGE = "https://kisskh.do/assets/icons/icon-512x512.png";
 var foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
   const rows = chosen.type ? await rowsOf(kino, TAB_ROWS[chosen.type]) : await homeRows(kino);
-  return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
+  const out = { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
+  if (!chosen.type) out.hero = { title: t("heroTitle", kino), text: t("heroText", kino), image: HERO_IMAGE };
+  return out;
 }
 var SEARCH_CAP = 100;
 var PAGES_PER_CALL = 3;

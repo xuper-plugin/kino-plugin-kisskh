@@ -146,13 +146,18 @@ const TABS = [
   { id: "anime", labelKey: "tabAnime", type: 3 },
 ];
 
+const HERO_IMAGE = "https://kisskh.do/assets/icons/icon-512x512.png";
+
 const foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** `section({ tab })`: Inicio (the home rows, whatever the Home toggle says) and one tab per type. */
 export async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
   const rows = chosen.type ? await rowsOf(kino, TAB_ROWS[chosen.type]) : await homeRows(kino);
-  return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
+  const out = { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
+  // Banner on Inicio only. The square icon is the best raster logo the site serves (its SVG wordmark is not a safe image type).
+  if (!chosen.type) out.hero = { title: t("heroTitle", kino), text: t("heroText", kino), image: HERO_IMAGE };
+  return out;
 }
 
 const SEARCH_CAP = 100;
