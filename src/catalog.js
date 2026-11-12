@@ -112,6 +112,9 @@ const HOME_ROWS = [
   curatedRow("mostsearch"),
   curatedRow("anime"),
   curatedRow("upcoming"),
+  listRow("pais.th", "rowThai", { type: 0, country: 5, order: LATEST }),
+  listRow("pais.jp", "rowJapanese", { type: 0, country: 3, order: LATEST }),
+  listRow("pais.tw", "rowTaiwanese", { type: 0, country: 7, order: LATEST }),
 ];
 
 /** A type tab's rows: its newest, its latest updates, Korea and China favourites, then the shelves that fit it. */
@@ -187,7 +190,26 @@ export async function searchWithin(kino, within, q, cursor) {
   return more ? { items, next: String(start + PAGES_PER_CALL) } : { items };
 }
 
-/** `categories()`: one tile per type, each opening its "Ver más". */
+/** Category tiles: by country (list country filter) then by type. Ids are colon-free slugs; the list: form lives in `ref`. */
+const COUNTRIES = [
+  { slug: "kr", country: COUNTRY_KR, titleKey: "catKorean" },
+  { slug: "cn", country: COUNTRY_CN, titleKey: "catChinese" },
+  { slug: "jp", country: 3, titleKey: "catJapanese" },
+  { slug: "th", country: 5, titleKey: "catThai" },
+  { slug: "tw", country: 7, titleKey: "catTaiwanese" },
+  { slug: "ph", country: 8, titleKey: "catFilipino" },
+  { slug: "west", country: 6, titleKey: "catWestern" },
+];
+const TYPES = [
+  { slug: "dramas", type: 1, titleKey: "catDramas" },
+  { slug: "movies", type: 2, titleKey: "catMovies" },
+  { slug: "anime", type: 3, titleKey: "catAnime" },
+];
+
+/** `categories()`: one tile per country and per type, each opening its "Ver más". */
 export function categories(kino) {
-  return Object.entries(GENRES).map(([key, g]) => ({ id: key, title: t(g.titleKey, kino), ref: "genre:" + key }));
+  return [
+    ...COUNTRIES.map((c) => ({ id: `pais.${c.slug}`, title: t(c.titleKey, kino), ref: listRef(0, c.country) })),
+    ...TYPES.map((x) => ({ id: `tipo.${x.slug}`, title: t(x.titleKey, kino), ref: listRef(x.type) })),
+  ];
 }

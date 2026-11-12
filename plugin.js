@@ -22,6 +22,16 @@ var WORDS = {
     catMovies: "Pel\xEDculas",
     catAnime: "Anime",
     catHollywood: "Hollywood",
+    catKorean: "Coreanos",
+    catChinese: "Chinos",
+    catJapanese: "Japoneses",
+    catThai: "Tailandeses",
+    catTaiwanese: "Taiwaneses",
+    catFilipino: "Filipinos",
+    catWestern: "Occidentales",
+    rowThai: "Tailandeses",
+    rowJapanese: "Japoneses",
+    rowTaiwanese: "Taiwaneses",
     unavailable: "KissKH no est\xE1 disponible ahora. Intenta de nuevo en un rato.",
     healthApi: "Cat\xE1logo",
     healthSigner: "Reproducci\xF3n",
@@ -70,6 +80,16 @@ var WORDS = {
     catMovies: "Movies",
     catAnime: "Anime",
     catHollywood: "Hollywood",
+    catKorean: "Korean",
+    catChinese: "Chinese",
+    catJapanese: "Japanese",
+    catThai: "Thai",
+    catTaiwanese: "Taiwanese",
+    catFilipino: "Filipino",
+    catWestern: "Western",
+    rowThai: "Thai",
+    rowJapanese: "Japanese",
+    rowTaiwanese: "Taiwanese",
     unavailable: "KissKH is not available right now. Try again in a while.",
     healthApi: "Catalogue",
     healthSigner: "Playback",
@@ -251,7 +271,10 @@ var HOME_ROWS = [
   curatedRow("toprating"),
   curatedRow("mostsearch"),
   curatedRow("anime"),
-  curatedRow("upcoming")
+  curatedRow("upcoming"),
+  listRow("pais.th", "rowThai", { type: 0, country: 5, order: LATEST }),
+  listRow("pais.jp", "rowJapanese", { type: 0, country: 3, order: LATEST }),
+  listRow("pais.tw", "rowTaiwanese", { type: 0, country: 7, order: LATEST })
 ];
 var typeRows = (type, extra) => [
   listRow("novedades", "rowLatest", { type, order: LATEST }),
@@ -308,8 +331,25 @@ async function searchWithin(kino, within, q, cursor) {
   const more = last.items.length > 0 && start + PAGES_PER_CALL <= MAX_PAGE && (start + PAGES_PER_CALL - 1) * last.pageSize < last.totalCount;
   return more ? { items, next: String(start + PAGES_PER_CALL) } : { items };
 }
+var COUNTRIES = [
+  { slug: "kr", country: COUNTRY_KR, titleKey: "catKorean" },
+  { slug: "cn", country: COUNTRY_CN, titleKey: "catChinese" },
+  { slug: "jp", country: 3, titleKey: "catJapanese" },
+  { slug: "th", country: 5, titleKey: "catThai" },
+  { slug: "tw", country: 7, titleKey: "catTaiwanese" },
+  { slug: "ph", country: 8, titleKey: "catFilipino" },
+  { slug: "west", country: 6, titleKey: "catWestern" }
+];
+var TYPES = [
+  { slug: "dramas", type: 1, titleKey: "catDramas" },
+  { slug: "movies", type: 2, titleKey: "catMovies" },
+  { slug: "anime", type: 3, titleKey: "catAnime" }
+];
 function categories(kino) {
-  return Object.entries(GENRES).map(([key2, g]) => ({ id: key2, title: t(g.titleKey, kino), ref: "genre:" + key2 }));
+  return [
+    ...COUNTRIES.map((c) => ({ id: `pais.${c.slug}`, title: t(c.titleKey, kino), ref: listRef(0, c.country) })),
+    ...TYPES.map((x) => ({ id: `tipo.${x.slug}`, title: t(x.titleKey, kino), ref: listRef(x.type) }))
+  ];
 }
 
 // src/detail.js

@@ -54,9 +54,12 @@ test("categories refs are browsable", async () => {
   const { kino, calls } = serve();
   globalThis.kino = kino;
   const tiles = categories(kino);
-  assert.ok(tiles.length >= 3);
+  assert.deepEqual(tiles.map((t) => t.id), ["pais.kr", "pais.cn", "pais.jp", "pais.th", "pais.tw", "pais.ph", "pais.west", "tipo.dramas", "tipo.movies", "tipo.anime"]);
+  assert.equal(tiles[0].ref, "list:0:2:0:1");
+  assert.equal(tiles[9].ref, "list:3:0:0:1");
   for (const tile of tiles) {
-    assert.ok(tile.title && /^genre:[a-z]+$/.test(tile.ref));
+    assert.ok(tile.title && /^list:\d+:\d+:0:1$/.test(tile.ref));
+    assert.match(tile.id, /^[A-Za-z0-9._~-]{1,128}$/);
     calls.length = 0;
     assert.ok((await browse(kino, tile.ref, null)).items.length);
     assert.equal(calls.length, 1);
@@ -94,6 +97,14 @@ test("every id the host validates is colon-free, and refs keep the colon form", 
   }
   const cats = categories(kino);
   assert.equal(new Set(cats.map((c) => c.id)).size, cats.length);
-  for (const c of cats) { assert.match(c.id, ID); assert.match(c.ref, /^genre:/); }
+  for (const c of cats) { assert.match(c.id, ID); assert.match(c.ref, /^list:/); }
   for (const i of (await browse(kino, "list:1:0:0:1", "1")).items) assert.match(i.id, ID);
+});
+
+test("Inicio carries the country rows, with colon-free ids", async () => {
+  const { kino } = serve();
+  globalThis.kino = kino;
+  const rows = await home(kino, { homeRows: true });
+  for (const id of ["pais.th.0", "pais.jp.0", "pais.tw.0"]) assert.ok(rows.some((r) => r.id === id), id);
+  assert.equal(rows.find((r) => r.id === "pais.th.0").ref, "list:0:5:0:1");
 });
