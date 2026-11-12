@@ -14,7 +14,31 @@ var WORDS = {
     catMovies: "Pel\xEDculas",
     catAnime: "Anime",
     catHollywood: "Hollywood",
-    unavailable: "KissKH no est\xE1 disponible ahora. Intenta de nuevo en un rato."
+    unavailable: "KissKH no est\xE1 disponible ahora. Intenta de nuevo en un rato.",
+    healthApi: "Cat\xE1logo",
+    healthSigner: "Reproducci\xF3n",
+    healthOk: "ok",
+    healthFail: "falla",
+    healthNone: "sin probar",
+    probeDone: "Cat\xE1logo: {api}. Reproducci\xF3n: {signer}.",
+    cacheCleared: "Listo: {n} registros borrados.",
+    cacheClearedOne: "Listo: 1 registro borrado.",
+    prefsReset: "Preferencias restablecidas.",
+    badOption: "Elige un valor de la lista para \xAB{what}\xBB.",
+    whatSubLang: "Idioma de subt\xEDtulos",
+    whatQuality: "Calidad m\xE1xima",
+    panelTitle: "KissKH",
+    prefSubLang: "Subt\xEDtulos",
+    prefMaxQuality: "Calidad m\xE1xima",
+    prefNow: "Ahora: subt\xEDtulos \xAB{lang}\xBB \xB7 calidad {quality}.",
+    prefNoTracks: "Esta pantalla muestra los idiomas del cap\xEDtulo que reproduces; abre uno para elegir entre ellos.",
+    prefApplies: "Se aplica al abrir el pr\xF3ximo cap\xEDtulo.",
+    prefReset: "Restablecer",
+    prefResetConfirm: "\xBFVolver a los valores de f\xE1brica?",
+    prefSaved: "Listo: se aplica en el pr\xF3ximo cap\xEDtulo.",
+    qAuto: "Autom\xE1tica",
+    qUpTo: "Hasta {v}",
+    qUpTo480: "Hasta 480p (ahorra datos)"
   },
   en: {
     notFound: "I could not find this title on KissKH.",
@@ -30,7 +54,31 @@ var WORDS = {
     catMovies: "Movies",
     catAnime: "Anime",
     catHollywood: "Hollywood",
-    unavailable: "KissKH is not available right now. Try again in a while."
+    unavailable: "KissKH is not available right now. Try again in a while.",
+    healthApi: "Catalogue",
+    healthSigner: "Playback",
+    healthOk: "ok",
+    healthFail: "failing",
+    healthNone: "not tested",
+    probeDone: "Catalogue: {api}. Playback: {signer}.",
+    cacheCleared: "Done: {n} records cleared.",
+    cacheClearedOne: "Done: 1 record cleared.",
+    prefsReset: "Preferences reset.",
+    badOption: 'Pick a value from the list for "{what}".',
+    whatSubLang: "Subtitle language",
+    whatQuality: "Maximum quality",
+    panelTitle: "KissKH",
+    prefSubLang: "Subtitles",
+    prefMaxQuality: "Maximum quality",
+    prefNow: 'Now: "{lang}" subtitles \xB7 quality {quality}.',
+    prefNoTracks: "This screen lists the languages of the episode you are playing; open one to choose among them.",
+    prefApplies: "Applies when the next episode opens.",
+    prefReset: "Reset",
+    prefResetConfirm: "Go back to the default settings?",
+    prefSaved: "Done: applies to the next episode.",
+    qAuto: "Automatic",
+    qUpTo: "Up to {v}",
+    qUpTo480: "Up to 480p (saves data)"
   }
 };
 function langOf(kino = globalThis.kino) {
@@ -40,6 +88,13 @@ function t(key2, kino = globalThis.kino) {
   const words = WORDS[langOf(kino)];
   return words[key2] ?? WORDS.es[key2] ?? key2;
 }
+function tf(key2, vars, kino = globalThis.kino) {
+  return t(key2, kino).replace(/\{(\w+)\}/g, (m, k) => vars && vars[k] != null ? String(vars[k]) : m);
+}
+var both = (key2, vars) => {
+  const one = (lang) => tf(key2, vars && Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, typeof v === "function" ? v(lang) : v])), { lang });
+  return { es: one("es"), en: one("en") };
+};
 var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
 
 // src/util/http.js
@@ -1350,7 +1405,63 @@ ${cues.join("\n\n")}
 ` };
 }
 
+// src/panel/state.js
+var PREFS_KEY = "pp:prefs";
+var LAST_PREFIX = "pp:last:";
+var LATEST_KEY = "pp:latest";
+var LAST_TTL_MS = 6 * 3600 * 1e3;
+var MAX_LANGS = 30;
+var isStr = (x) => typeof x === "string";
+function readJson(kino, key2) {
+  try {
+    const v = JSON.parse(kino.storage.get(key2) || "null");
+    return v && typeof v === "object" && v.v === 1 ? v : null;
+  } catch (_) {
+    return null;
+  }
+}
+function writeJson(kino, key2, value, ttlMs) {
+  try {
+    kino.storage.set(key2, JSON.stringify({ v: 1, ...value }), ttlMs ? { ttlMs } : void 0);
+  } catch (_) {
+  }
+}
+function readPrefs(kino) {
+  const p = readJson(kino, PREFS_KEY);
+  const out = {};
+  if (p && isStr(p.preferredSubLang)) out.preferredSubLang = p.preferredSubLang;
+  if (p && isStr(p.maxQuality)) out.maxQuality = p.maxQuality;
+  return out;
+}
+function writePrefs(kino, patch) {
+  writeJson(kino, PREFS_KEY, { ...readPrefs(kino), ...patch });
+}
+function clearPrefs(kino) {
+  try {
+    kino.storage.remove(PREFS_KEY);
+  } catch (_) {
+  }
+}
+function writeLast(kino, ref, rec) {
+  if (!isStr(ref) || !ref || !rec || !Array.isArray(rec.langs)) return;
+  writeJson(kino, LATEST_KEY, { ref }, LAST_TTL_MS);
+  writeJson(kino, LAST_PREFIX + ref, {
+    langs: rec.langs.filter((x) => x && isStr(x.lang) && x.lang).slice(0, MAX_LANGS).map((x) => ({ lang: x.lang, label: isStr(x.label) ? x.label : x.lang }))
+  }, LAST_TTL_MS);
+}
+function readLangs(kino, ref) {
+  let r = isStr(ref) && ref ? readJson(kino, LAST_PREFIX + ref) : null;
+  if (!r) {
+    const latest = readJson(kino, LATEST_KEY);
+    r = latest && isStr(latest.ref) ? readJson(kino, LAST_PREFIX + latest.ref) : null;
+  }
+  return r && Array.isArray(r.langs) ? r.langs.filter((x) => x && isStr(x.lang)).map((x) => ({ lang: x.lang, label: isStr(x.label) ? x.label : x.lang })) : [];
+}
+
 // src/settings.js
+var QUALITIES = ["auto", "1080p", "720p", "480p"];
+var FORM_LANGS = ["en", "es"];
+var VALUE_KEYS = ["preferredSubLang", "maxQuality", "homeRows", "forceBrowserLane"];
 var read = (kino, key2) => {
   try {
     return kino.config.get(key2);
@@ -1361,12 +1472,19 @@ var read = (kino, key2) => {
 var toggle = (v, fallback) => v === true || v === "true" ? true : v === false || v === "false" ? false : fallback;
 var choice = (v, fallback) => typeof v === "string" && v ? v : fallback;
 function readSettings(kino) {
+  const override = readPrefs(kino);
   return {
-    preferredSubLang: choice(read(kino, "preferredSubLang"), "en"),
-    maxQuality: choice(read(kino, "maxQuality"), "auto"),
+    preferredSubLang: choice(override.preferredSubLang, choice(read(kino, "preferredSubLang"), "en")),
+    maxQuality: QUALITIES.includes(override.maxQuality) ? override.maxQuality : choice(read(kino, "maxQuality"), "auto"),
     homeRows: toggle(read(kino, "homeRows"), true),
     forceBrowserLane: toggle(read(kino, "forceBrowserLane"), false)
   };
+}
+function validateSettings(kino, values) {
+  const v = values && typeof values === "object" ? values : {};
+  if ("preferredSubLang" in v && !FORM_LANGS.includes(v.preferredSubLang)) return tf("badOption", { what: t("whatSubLang", kino) }, kino);
+  if ("maxQuality" in v && !QUALITIES.includes(v.maxQuality)) return tf("badOption", { what: t("whatQuality", kino) }, kino);
+  return null;
 }
 
 // src/browserLane.js
@@ -1419,7 +1537,7 @@ async function subtitleTrack(kino, track) {
   try {
     const r = await get(track.src, kino);
     if (r.status !== 200) return null;
-    return { lang: String(track.land || track.label), format: "vtt", text: decryptTxt1(r.text()).vtt };
+    return { lang: String(track.land || track.label), label: String(track.label || track.land), format: "vtt", text: decryptTxt1(r.text()).vtt };
   } catch (_) {
     return null;
   }
@@ -1433,11 +1551,12 @@ async function subtitles(kino, episodeId, preferred) {
     return [];
   }
 }
-async function signed(kino, play, settings) {
+async function signed(kino, ref, play, settings) {
   const url = await videoUrl(kino, play.episodeId);
   const stream = { url, mime: mimeOf(url), headers: { "User-Agent": UA, Referer: ORIGIN + "/" } };
   const subs = await subtitles(kino, play.episodeId, settings.preferredSubLang);
   if (subs.length) stream.subtitles = subs;
+  writeLast(kino, ref, { langs: subs.map((x) => ({ lang: x.lang, label: x.label })) });
   return stream;
 }
 async function resolve2(kino, ref) {
@@ -1446,10 +1565,124 @@ async function resolve2(kino, ref) {
   const settings = readSettings(kino);
   if (settings.forceBrowserLane) return resolve(kino, play);
   try {
-    return await signed(kino, play, settings);
+    return await signed(kino, ref, play, settings);
   } catch (_) {
     return resolve(kino, play);
   }
+}
+
+// src/health.js
+var KEY = "health";
+function readHealth(kino) {
+  try {
+    const h = JSON.parse(kino.storage.get(KEY) || "{}");
+    return h && typeof h === "object" && !Array.isArray(h) ? h : {};
+  } catch (_) {
+    return {};
+  }
+}
+function recordProbe(kino, { api, signer }) {
+  try {
+    kino.storage.set(KEY, JSON.stringify({ api: !!api, signer: !!signer, at: Date.now() }));
+  } catch (_) {
+  }
+}
+function healthLine(kino, health = readHealth(kino)) {
+  const state = (ok) => t(typeof ok !== "boolean" ? "healthNone" : ok ? "healthOk" : "healthFail", kino);
+  return `${t("healthApi", kino)} ${state(health.api)} \xB7 ${t("healthSigner", kino)} ${state(health.signer)}`;
+}
+
+// src/panel/index.js
+var MAX_LANG_CHARS = 20;
+var KEYS2 = ["preferredSubLang", "maxQuality"];
+var label = (m) => ({ label: m.es, labelEn: m.en });
+var isLang = (v) => typeof v === "string" && v.length > 0 && v.length <= MAX_LANG_CHARS;
+var qualityLabel = (q) => q === "auto" ? both("qAuto") : q === "480p" ? both("qUpTo480") : both("qUpTo", { v: q });
+function langOptions(tracks, current) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const x of [...tracks, { lang: current, label: current }]) {
+    if (!seen.has(x.lang)) {
+      seen.add(x.lang);
+      out.push({ value: x.lang, label: x.label, labelEn: x.label });
+    }
+  }
+  return out;
+}
+function reconcile(kino, ctx) {
+  try {
+    const v = ctx && ctx.values && ctx.values.plugin;
+    if (!v || typeof v !== "object") return;
+    if (!KEYS2.some((k) => k in v)) {
+      clearPrefs(kino);
+      return;
+    }
+    const patch = {};
+    if (isLang(v.preferredSubLang)) patch.preferredSubLang = v.preferredSubLang;
+    if (QUALITIES.includes(v.maxQuality)) patch.maxQuality = v.maxQuality;
+    const stored = readPrefs(kino);
+    if (Object.keys(patch).some((k) => stored[k] !== patch[k])) writePrefs(kino, patch);
+  } catch (_) {
+  }
+}
+async function panel(ctx) {
+  const kino = globalThis.kino;
+  ctx = ctx || {};
+  reconcile(kino, ctx);
+  const current = readSettings(kino);
+  const tracks = readLangs(kino, ctx.ref);
+  const now = both("prefNow", { lang: current.preferredSubLang, quality: (l) => qualityLabel(current.maxQuality)[l] });
+  const elements = [{ type: "text", text: now.es, textEn: now.en }];
+  if (tracks.length) {
+    elements.push({
+      type: "select",
+      key: "preferredSubLang",
+      scope: "plugin",
+      autoSave: true,
+      ...label(both("prefSubLang")),
+      value: current.preferredSubLang,
+      options: langOptions(tracks, current.preferredSubLang)
+    });
+  } else {
+    const none = both("prefNoTracks");
+    elements.push({ type: "status", text: none.es, textEn: none.en });
+  }
+  elements.push({
+    type: "select",
+    key: "maxQuality",
+    scope: "plugin",
+    autoSave: true,
+    ...label(both("prefMaxQuality")),
+    value: current.maxQuality,
+    options: QUALITIES.map((q) => ({ value: q, ...label(qualityLabel(q)) }))
+  });
+  const confirm = both("prefResetConfirm");
+  elements.push({ type: "button", key: "reset", ...label(both("prefReset")), confirm: confirm.es, confirmEn: confirm.en });
+  const note = both("prefApplies");
+  elements.push({ type: "status", text: note.es, textEn: note.en });
+  const title = t("panelTitle", { lang: "es" });
+  return { title, titleEn: t("panelTitle", { lang: "en" }), elements };
+}
+async function panelAction(ev, ctx) {
+  try {
+    const kino = globalThis.kino;
+    const key2 = ev && ev.key;
+    if (key2 === "reset" && ev.trigger === "press") {
+      clearPrefs(kino);
+      return { values: { preferredSubLang: null, maxQuality: null }, save: KEYS2 };
+    }
+    if (!ev || ev.trigger !== "change") return null;
+    if (key2 === "preferredSubLang" && isLang(ev.value)) writePrefs(kino, { preferredSubLang: ev.value });
+    else if (key2 === "maxQuality" && QUALITIES.includes(ev.value)) writePrefs(kino, { maxQuality: ev.value });
+    else return null;
+    const lang = ctx && typeof ctx.lang === "string" ? ctx.lang : kino.lang;
+    return { values: { [key2]: ev.value }, save: [key2], message: t("prefSaved", { lang }) };
+  } catch (_) {
+    return null;
+  }
+}
+async function playerEvent() {
+  return null;
 }
 
 // src/plugin.js
@@ -1480,23 +1713,50 @@ async function details2(ref) {
 async function resolve3(ref) {
   return resolve2(getKino(), ref);
 }
+var PROBE_EPISODE = 174941;
 async function settingsStatus() {
-  return {};
+  const kino = getKino();
+  return { health: healthLine(kino) };
 }
-async function action() {
+async function probe(kino) {
+  const ok = async (ask) => {
+    try {
+      await ask();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+  const health = {
+    api: await ok(() => list({ pageSize: 1 })),
+    signer: await ok(() => videoUrl(kino, PROBE_EPISODE))
+  };
+  recordProbe(kino, health);
+  const state = (v) => t(v ? "healthOk" : "healthFail", kino);
+  return { message: tf("probeDone", { api: state(health.api), signer: state(health.signer) }, kino) };
+}
+function clearCache(kino) {
+  let n = 0;
+  for (const key2 of kino.storage.keys()) {
+    if (key2 === LATEST_KEY || key2.startsWith(LAST_PREFIX)) {
+      kino.storage.remove(key2);
+      n++;
+    }
+  }
+  return { message: n === 1 ? t("cacheClearedOne", kino) : tf("cacheCleared", { n }, kino) };
+}
+async function action(key2) {
+  const kino = getKino();
+  if (key2 === "probe") return probe(kino);
+  if (key2 === "clearCache") return clearCache(kino);
+  if (key2 === "resetPrefs") {
+    clearPrefs(kino);
+    return { message: t("prefsReset", kino), clearSettings: VALUE_KEYS };
+  }
   return null;
 }
-async function validateSettings() {
-  return null;
-}
-async function panel() {
-  return null;
-}
-async function panelAction() {
-  return null;
-}
-async function playerEvent() {
-  return null;
+async function validateSettings2(values) {
+  return validateSettings(getKino(), values);
 }
 export {
   action,
@@ -1512,5 +1772,5 @@ export {
   search,
   section2 as section,
   settingsStatus,
-  validateSettings
+  validateSettings2 as validateSettings
 };

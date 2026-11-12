@@ -54,17 +54,37 @@
   "telemetry": true,
   "settings": [
     {
+      "key": "langSection",
+      "type": "section",
+      "label": "Idioma y subtítulos",
+      "labelEn": "Language and subtitles"
+    },
+    {
       "key": "preferredSubLang",
       "type": "select",
       "label": "Idioma de subtítulos",
       "labelEn": "Subtitle language",
       "default": "en",
       "options": [
-        { "value": "en", "label": "Inglés", "labelEn": "English" },
-        { "value": "es", "label": "Español", "labelEn": "Spanish" }
+        {
+          "value": "en",
+          "label": "Inglés",
+          "labelEn": "English"
+        },
+        {
+          "value": "es",
+          "label": "Español",
+          "labelEn": "Spanish"
+        }
       ],
       "hint": "El subtítulo que se activa primero cuando hay varios.",
       "hintEn": "The subtitle switched on first when there are several."
+    },
+    {
+      "key": "playSection",
+      "type": "section",
+      "label": "Reproducción",
+      "labelEn": "Playback"
     },
     {
       "key": "maxQuality",
@@ -73,11 +93,42 @@
       "labelEn": "Maximum quality",
       "default": "auto",
       "options": [
-        { "value": "auto", "label": "Automática", "labelEn": "Automatic" },
-        { "value": "1080p", "label": "Hasta 1080p", "labelEn": "Up to 1080p" },
-        { "value": "720p", "label": "Hasta 720p", "labelEn": "Up to 720p" },
-        { "value": "480p", "label": "Hasta 480p (ahorra datos)", "labelEn": "Up to 480p (saves data)" }
+        {
+          "value": "auto",
+          "label": "Automática",
+          "labelEn": "Automatic"
+        },
+        {
+          "value": "1080p",
+          "label": "Hasta 1080p",
+          "labelEn": "Up to 1080p"
+        },
+        {
+          "value": "720p",
+          "label": "Hasta 720p",
+          "labelEn": "Up to 720p"
+        },
+        {
+          "value": "480p",
+          "label": "Hasta 480p (ahorra datos)",
+          "labelEn": "Up to 480p (saves data)"
+        }
       ]
+    },
+    {
+      "key": "forceBrowserLane",
+      "type": "toggle",
+      "label": "Reproducir siempre con el navegador",
+      "labelEn": "Always play through the browser",
+      "default": false,
+      "hint": "Actívalo solo si los capítulos no abren de la forma normal.",
+      "hintEn": "Turn it on only if episodes do not open the normal way."
+    },
+    {
+      "key": "homeSection",
+      "type": "section",
+      "label": "Inicio",
+      "labelEn": "Home"
     },
     {
       "key": "homeRows",
@@ -89,13 +140,38 @@
       "hintEn": "Shows KissKH's new releases on Kino's Home."
     },
     {
-      "key": "forceBrowserLane",
-      "type": "toggle",
-      "label": "Reproducir siempre con el navegador",
-      "labelEn": "Always play through the browser",
-      "default": false,
-      "hint": "Actívalo solo si los capítulos no abren de la forma normal.",
-      "hintEn": "Turn it on only if episodes do not open the normal way."
+      "key": "toolsSection",
+      "type": "section",
+      "label": "Estado",
+      "labelEn": "Status",
+      "hint": "Dice si el catálogo y la reproducción respondieron en la última prueba.",
+      "hintEn": "Says whether the catalogue and playback answered on the last test."
+    },
+    {
+      "key": "health",
+      "type": "status",
+      "label": "KissKH",
+      "labelEn": "KissKH"
+    },
+    {
+      "key": "probe",
+      "type": "action",
+      "label": "Probar ahora",
+      "labelEn": "Test now"
+    },
+    {
+      "key": "clearCache",
+      "type": "action",
+      "label": "Borrar caché",
+      "labelEn": "Clear cache"
+    },
+    {
+      "key": "resetPrefs",
+      "type": "action",
+      "label": "Restablecer preferencias",
+      "labelEn": "Reset preferences",
+      "confirm": "¿Volver a los valores de fábrica de KissKH?",
+      "confirmEn": "Go back to KissKH's default settings?"
     }
   ]
 }

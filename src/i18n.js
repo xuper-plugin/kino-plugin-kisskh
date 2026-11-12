@@ -20,6 +20,30 @@ const WORDS = {
     catAnime: "Anime",
     catHollywood: "Hollywood",
     unavailable: "KissKH no está disponible ahora. Intenta de nuevo en un rato.",
+    healthApi: "Catálogo",
+    healthSigner: "Reproducción",
+    healthOk: "ok",
+    healthFail: "falla",
+    healthNone: "sin probar",
+    probeDone: "Catálogo: {api}. Reproducción: {signer}.",
+    cacheCleared: "Listo: {n} registros borrados.",
+    cacheClearedOne: "Listo: 1 registro borrado.",
+    prefsReset: "Preferencias restablecidas.",
+    badOption: "Elige un valor de la lista para «{what}».",
+    whatSubLang: "Idioma de subtítulos",
+    whatQuality: "Calidad máxima",
+    panelTitle: "KissKH",
+    prefSubLang: "Subtítulos",
+    prefMaxQuality: "Calidad máxima",
+    prefNow: "Ahora: subtítulos «{lang}» · calidad {quality}.",
+    prefNoTracks: "Esta pantalla muestra los idiomas del capítulo que reproduces; abre uno para elegir entre ellos.",
+    prefApplies: "Se aplica al abrir el próximo capítulo.",
+    prefReset: "Restablecer",
+    prefResetConfirm: "¿Volver a los valores de fábrica?",
+    prefSaved: "Listo: se aplica en el próximo capítulo.",
+    qAuto: "Automática",
+    qUpTo: "Hasta {v}",
+    qUpTo480: "Hasta 480p (ahorra datos)",
   },
   en: {
     notFound: "I could not find this title on KissKH.",
@@ -36,6 +60,30 @@ const WORDS = {
     catAnime: "Anime",
     catHollywood: "Hollywood",
     unavailable: "KissKH is not available right now. Try again in a while.",
+    healthApi: "Catalogue",
+    healthSigner: "Playback",
+    healthOk: "ok",
+    healthFail: "failing",
+    healthNone: "not tested",
+    probeDone: "Catalogue: {api}. Playback: {signer}.",
+    cacheCleared: "Done: {n} records cleared.",
+    cacheClearedOne: "Done: 1 record cleared.",
+    prefsReset: "Preferences reset.",
+    badOption: "Pick a value from the list for \"{what}\".",
+    whatSubLang: "Subtitle language",
+    whatQuality: "Maximum quality",
+    panelTitle: "KissKH",
+    prefSubLang: "Subtitles",
+    prefMaxQuality: "Maximum quality",
+    prefNow: "Now: \"{lang}\" subtitles · quality {quality}.",
+    prefNoTracks: "This screen lists the languages of the episode you are playing; open one to choose among them.",
+    prefApplies: "Applies when the next episode opens.",
+    prefReset: "Reset",
+    prefResetConfirm: "Go back to the default settings?",
+    prefSaved: "Done: applies to the next episode.",
+    qAuto: "Automatic",
+    qUpTo: "Up to {v}",
+    qUpTo480: "Up to 480p (saves data)",
   },
 };
 
@@ -49,6 +97,18 @@ export function t(key, kino = globalThis.kino) {
   const words = WORDS[langOf(kino)];
   return words[key] ?? WORDS.es[key] ?? key;
 }
+
+/** `t(key)` with its `{name}` placeholders filled from [vars]. */
+export function tf(key, vars, kino = globalThis.kino) {
+  return t(key, kino).replace(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null ? String(vars[k]) : m));
+}
+
+/** `tf(key, vars)` in both languages: `{ es, en }`, for the panel's `text` / `textEn` twins. */
+// A var that is a function is called with the language ("es"/"en"), for values that are themselves words.
+export const both = (key, vars) => {
+  const one = (lang) => tf(key, vars && Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, typeof v === "function" ? v(lang) : v])), { lang });
+  return { es: one("es"), en: one("en") };
+};
 
 /** For tests: every key, so both languages can be checked to have the same set. */
 export const KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };

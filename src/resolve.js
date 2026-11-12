@@ -7,6 +7,7 @@ import { drama } from "./api.js";
 import { get, getJson, ORIGIN, UA } from "./util/http.js";
 import { decryptTxt1 } from "./subs.js";
 import { readSettings } from "./settings.js";
+import { writeLast } from "./panel/state.js";
 import * as browserLane from "./browserLane.js";
 import { t } from "./i18n.js";
 
@@ -27,7 +28,7 @@ async function parsePlay(ref) {
 }
 
 /** The playable Video URL of an Episode answer; an upcoming episode answers a widget, not a stream. */
-async function videoUrl(kino, episodeId) {
+export async function videoUrl(kino, episodeId) {
   const r = await get(`${API}/DramaList/Episode/${episodeId}.png?err=false&ts=&time=&kkey=${signVideo(episodeId)}`, kino);
   if (r.status !== 200) throw new Error(`Episode answered ${r.status}`);
   const url = r.json().Video;
@@ -40,7 +41,7 @@ async function subtitleTrack(kino, track) {
   try {
     const r = await get(track.src, kino);
     if (r.status !== 200) return null;
-    return { lang: String(track.land || track.label), format: "vtt", text: decryptTxt1(r.text()).vtt };
+    return { lang: String(track.land || track.label), label: String(track.label || track.land), format: "vtt", text: decryptTxt1(r.text()).vtt };
   } catch (_) {
     return null;
   }
@@ -57,11 +58,12 @@ async function subtitles(kino, episodeId, preferred) {
   }
 }
 
-async function signed(kino, play, settings) {
+async function signed(kino, ref, play, settings) {
   const url = await videoUrl(kino, play.episodeId);
   const stream = { url, mime: browserLane.mimeOf(url), headers: { "User-Agent": UA, Referer: ORIGIN + "/" } };
   const subs = await subtitles(kino, play.episodeId, settings.preferredSubLang);
   if (subs.length) stream.subtitles = subs;
+  writeLast(kino, ref, { langs: subs.map((x) => ({ lang: x.lang, label: x.label })) });
   return stream;
 }
 
@@ -72,7 +74,7 @@ export async function resolve(kino, ref) {
   const settings = readSettings(kino);
   if (settings.forceBrowserLane) return browserLane.resolve(kino, play);
   try {
-    return await signed(kino, play, settings);
+    return await signed(kino, ref, play, settings);
   } catch (_) {
     return browserLane.resolve(kino, play);
   }

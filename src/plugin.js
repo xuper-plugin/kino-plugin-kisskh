@@ -1,9 +1,13 @@
 // KissKH: stub exports for every capability the manifest declares. Real logic arrives in later tasks.
-import { t } from "./i18n.js";
+import { t, tf } from "./i18n.js";
 import * as catalog from "./catalog.js";
 import * as detail from "./detail.js";
 import * as playback from "./resolve.js";
-import { readSettings } from "./settings.js";
+import { videoUrl } from "./resolve.js";
+import { list } from "./api.js";
+import { readSettings, validateSettings as validate, VALUE_KEYS } from "./settings.js";
+import { healthLine, recordProbe } from "./health.js";
+import { clearPrefs, LAST_PREFIX, LATEST_KEY } from "./panel/state.js";
 
 const getKino = () => globalThis.kino;
 
@@ -55,32 +59,59 @@ export async function resolve(ref) {
   return playback.resolve(getKino(), ref);
 }
 
-/** `settingsStatus()`: the status line in the settings form. */
+// ---------- settings form ----------
+
+const PROBE_EPISODE = 174941; // a known episode: the signer and the Episode endpoint answer for it
+
+/** `settingsStatus()`: the "health" line. */
 export async function settingsStatus() {
-  return {};
+  const kino = getKino();
+  return { health: healthLine(kino) };
 }
 
-/** `action(key)`: the settings form's buttons. */
-export async function action() {
+/** Asks the catalogue API and signs + fetches a known Episode, past any cache; the results land in the health line. */
+async function probe(kino) {
+  const ok = async (ask) => {
+    try {
+      await ask();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+  const health = {
+    api: await ok(() => list({ pageSize: 1 })),
+    signer: await ok(() => videoUrl(kino, PROBE_EPISODE)),
+  };
+  recordProbe(kino, health);
+  const state = (v) => t(v ? "healthOk" : "healthFail", kino);
+  return { message: tf("probeDone", { api: state(health.api), signer: state(health.signer) }, kino) };
+}
+
+/** Removes only what can be fetched again: the panel's per-stream records (pp:last:*, pp:latest). */
+function clearCache(kino) {
+  let n = 0;
+  for (const key of kino.storage.keys()) {
+    if (key === LATEST_KEY || key.startsWith(LAST_PREFIX)) { kino.storage.remove(key); n++; }
+  }
+  return { message: n === 1 ? t("cacheClearedOne", kino) : tf("cacheCleared", { n }, kino) };
+}
+
+/** `action(key)`: the form's buttons -- probe, clearCache, resetPrefs. */
+export async function action(key) {
+  const kino = getKino();
+  if (key === "probe") return probe(kino);
+  if (key === "clearCache") return clearCache(kino);
+  if (key === "resetPrefs") {
+    clearPrefs(kino);
+    return { message: t("prefsReset", kino), clearSettings: VALUE_KEYS };
+  }
   return null;
 }
 
 /** `validateSettings(values)`: null when the form's values are acceptable. */
-export async function validateSettings() {
-  return null;
+export async function validateSettings(values) {
+  return validate(getKino(), values);
 }
 
-/** `panel(ctx)`: the player panel. */
-export async function panel() {
-  return null;
-}
-
-/** `panelAction(ctx)`: a press in the player panel. */
-export async function panelAction() {
-  return null;
-}
-
-/** `playerEvent(event)`: a player event. */
-export async function playerEvent() {
-  return null;
-}
+export { panel, panelAction, playerEvent } from "./panel/index.js";
