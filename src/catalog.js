@@ -4,6 +4,8 @@
 //   d:<dramaId>                                   a title (the tile's ref)
 //   list:<type>:<country>:<status>:<order>        a browse page; type 0 all, 1 series, 2 movie, 3 anime, 4 Hollywood
 //   genre:<key>                                   a category tile's page, the same list params under a name
+//   e:<dramaId>:<episodeId>:<number>              a series episode (detail.js makes it, resolve reads it)
+//   m:<dramaId>                                   a movie's play ref (resolve reads it)
 
 import { list } from "./api.js";
 import { t } from "./i18n.js";
@@ -21,6 +23,9 @@ const GENRES = {
   anime: { type: 3, titleKey: "catAnime" },
   hollywood: { type: 4, titleKey: "catHollywood" },
 };
+
+/** "d:<id>" -> the drama id (a string of digits), else null. */
+export const titleId = (ref) => (/^d:(\d{1,9})$/.exec(String(ref || "")) || [])[1] || null;
 
 /** A list item as Kino's tile. `kind` is a list-time guess (one episode: a movie); the detail's type settles it later. */
 export function dress(item) {

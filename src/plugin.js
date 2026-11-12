@@ -1,6 +1,7 @@
 // KissKH: stub exports for every capability the manifest declares. Real logic arrives in later tasks.
 import { t } from "./i18n.js";
 import * as catalog from "./catalog.js";
+import * as detail from "./detail.js";
 
 const getKino = () => globalThis.kino;
 
@@ -45,13 +46,13 @@ export async function categories() {
 }
 
 /** `episodes(ref)`: a series' episodes. */
-export async function episodes() {
-  return [];
+export async function episodes(ref) {
+  return detail.episodes(getKino(), ref);
 }
 
 /** `details(ref)`: a title's detail page. */
-export async function details() {
-  throw unavailable("details");
+export async function details(ref) {
+  return detail.details(getKino(), ref);
 }
 
 /** `resolve(ref)`: the Stream to play. */

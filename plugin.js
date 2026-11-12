@@ -68,6 +68,21 @@ async function list({ page = 1, type = 0, country = 0, status = 0, order = 1, pa
   const j = await getJson(`${API}/List?page=${page}&type=${type}&sub=0&country=${country}&status=${status}&order=${order}&pageSize=${pageSize}`);
   return { page: j.page, pageSize: j.pageSize, totalCount: j.totalCount, items: (j.data || []).map(item) };
 }
+async function drama(id) {
+  const j = await getJson(`${API}/Drama/${id}?isq=false`);
+  return {
+    id: j.id,
+    title: String(j.title ?? ""),
+    description: String(j.description ?? ""),
+    country: String(j.country ?? ""),
+    status: String(j.status ?? ""),
+    type: String(j.type ?? ""),
+    releaseDate: String(j.releaseDate ?? ""),
+    thumbnail: String(j.thumbnail ?? ""),
+    episodes: (j.episodes || []).map((e) => ({ id: e.id, number: e.number, sub: e.sub })),
+    episodesCount: j.episodesCount | 0
+  };
+}
 
 // src/catalog.js
 var ROW_CAP = 24;
@@ -80,6 +95,7 @@ var GENRES = {
   anime: { type: 3, titleKey: "catAnime" },
   hollywood: { type: 4, titleKey: "catHollywood" }
 };
+var titleId = (ref) => (/^d:(\d{1,9})$/.exec(String(ref || "")) || [])[1] || null;
 function dress(item2) {
   return {
     ref: "d:" + item2.id,
@@ -143,6 +159,32 @@ function categories(kino) {
   return Object.entries(GENRES).map(([key, g]) => ({ id: key, title: t(g.titleKey, kino), ref: "genre:" + key }));
 }
 
+// src/detail.js
+async function details(kino, ref) {
+  const id = titleId(ref);
+  if (!id) return null;
+  const d = await drama(id);
+  const year = /^(\d{4})-/.exec(d.releaseDate);
+  const info = {
+    title: d.title,
+    overview: d.description,
+    poster: d.thumbnail,
+    year: year ? +year[1] : null,
+    country: d.country,
+    status: d.status
+  };
+  return Object.fromEntries(Object.entries(info).filter(([, v]) => v !== "" && v !== null));
+}
+async function episodes(kino, ref) {
+  const id = titleId(ref);
+  if (!id) throw kino.error("not_found", "not a KissKH title ref", { userMessage: t("notFound", kino) });
+  const d = await drama(id);
+  const series = { title: d.title, poster: d.thumbnail };
+  if (d.type === "Movie" || d.episodes.length <= 1) return { series, episodes: [] };
+  const list2 = d.episodes.map((e) => ({ season: 1, number: e.number, ref: `e:${id}:${e.id}:${e.number}` })).sort((a, b) => a.number - b.number);
+  return { series, episodes: list2 };
+}
+
 // src/plugin.js
 var getKino = () => globalThis.kino;
 var unavailable = (what) => {
@@ -174,11 +216,11 @@ async function section2(arg) {
 async function categories2() {
   return categories(getKino());
 }
-async function episodes() {
-  return [];
+async function episodes2(ref) {
+  return episodes(getKino(), ref);
 }
-async function details() {
-  throw unavailable("details");
+async function details2(ref) {
+  return details(getKino(), ref);
 }
 async function resolve() {
   throw unavailable("resolve");
@@ -205,8 +247,8 @@ export {
   action,
   browse2 as browse,
   categories2 as categories,
-  details,
-  episodes,
+  details2 as details,
+  episodes2 as episodes,
   home2 as home,
   panel,
   panelAction,
