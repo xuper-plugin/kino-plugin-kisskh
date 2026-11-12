@@ -79,3 +79,47 @@ test("an unreachable site draws an error state, not a crash", async () => {
   assert.equal(find(tree, (n) => n.type === "PageView").length, 0);
   assert.equal(find(tree, (n) => n.type === "emptyState" || n.type === "errorState").length, 1);
 });
+
+test("a second draw (a re-tap) is served from the cache: no new request", async () => {
+  const { kino, calls } = fakeKino({ fetch: route() });
+  globalThis.kino = kino;
+  const first = await screen({ state: {} });
+  const n = calls.length;
+  assert.ok(n > 0);
+  const again = await screen({ state: { tab: "inicio", country: "all" } });
+  assert.equal(calls.length, n, "cached re-render must not fetch");
+  assert.deepEqual(JSON.parse(JSON.stringify(again)), JSON.parse(JSON.stringify(first)));
+  await screen({ state: { tab: "dramas" } }); // another tab does fetch its own rails
+  assert.ok(calls.length > n);
+});
+
+test("hero details are fetched together and capped at five", async () => {
+  let live = 0;
+  let peak = 0;
+  const { kino, calls } = fakeKino({
+    fetch: route((u) => {
+      if (!u.pathname.includes("/Drama/")) return null;
+      return new Promise((res) => {
+        live++;
+        peak = Math.max(peak, live);
+        setTimeout(() => { live--; res({ status: 200, body: fixture("drama.json") }); }, 15);
+      });
+    }),
+  });
+  globalThis.kino = kino;
+  await screen({ state: {} });
+  const details = calls.filter((c) => c.url.includes("/Drama/")).length;
+  assert.ok(details >= 3 && details <= 5, `detail fetches: ${details}`);
+  assert.equal(peak, details, "all hero details in flight at once");
+});
+
+test("a failed rail drops only itself and is not cached", async () => {
+  let broken = true;
+  const { kino } = fakeKino({ fetch: route((u) => (broken && u.pathname.endsWith("/TopRating") ? { status: 503, body: "" } : null)) });
+  globalThis.kino = kino;
+  const a = find(await screen({ state: {} }), (n) => n.type === "titleRail");
+  assert.ok(a.length >= 5 && !a.some((r) => r.key === "rail-toprating"));
+  broken = false;
+  const b = find(await screen({ state: {} }), (n) => n.type === "titleRail");
+  assert.ok(b.some((r) => r.key === "rail-toprating"), "the failure was not cached");
+});

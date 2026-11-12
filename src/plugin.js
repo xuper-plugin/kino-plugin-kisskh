@@ -10,6 +10,11 @@ import { healthLine, recordProbe } from "./health.js";
 import { buildScreen, handleEvent } from "./screen.js";
 import { clearPrefs, LAST_PREFIX, LATEST_KEY } from "./panel/state.js";
 
+// Kino waits for a plugin's in-flight requests before it answers; with this flag it drops the ones nobody awaits,
+// so a slow rail cannot make Home or the screen time out. Every fetch here is awaited by its caller (resolve and
+// subtitles included), so the flag only ever drops stragglers.
+globalThis.__kinoDropPendingFetches = true;
+
 const getKino = () => globalThis.kino;
 
 /** `search(query)`: the site's matches; inside a "Ver más" page (scopedSearch, `query.within`), that page's matching titles. */

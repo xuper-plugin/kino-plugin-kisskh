@@ -203,6 +203,36 @@ var animate = () => curated("Animate?ispc=false");
 var mostSearch = () => curated("MostSearch?ispc=false");
 var upcoming = () => curated("Upcoming?ispc=false");
 
+// src/screenCache.js
+var TTL_MS = 4 * 60 * 1e3;
+var MAX_ENTRIES = 80;
+var stores = /* @__PURE__ */ new WeakMap();
+var storeOf = (kino) => {
+  let s = stores.get(kino);
+  if (!s) stores.set(kino, s = /* @__PURE__ */ new Map());
+  return s;
+};
+function cached(kino, key2, load, ttl = TTL_MS) {
+  const store = storeOf(kino);
+  const now = Date.now();
+  const hit = store.get(key2);
+  if (hit && (hit.pending || now - hit.at < ttl)) return hit.pending || Promise.resolve(hit.value);
+  const pending = Promise.resolve().then(load).then(
+    (value) => {
+      store.set(key2, { at: Date.now(), value });
+      if (store.size > MAX_ENTRIES) store.delete(store.keys().next().value);
+      return value;
+    },
+    (e) => {
+      const cur = store.get(key2);
+      if (cur && cur.pending === pending) store.delete(key2);
+      throw e;
+    }
+  );
+  store.set(key2, { at: now, pending });
+  return pending;
+}
+
 // src/catalog.js
 var ROW_CAP = 24;
 var MAX_PAGE = 2e3;
@@ -262,7 +292,7 @@ var CURATED = {
 var listRow = (slug, titleKey, q) => ({ id: `${slug}.${q.type}`, titleKey, q: { status: 0, ...q } });
 var curatedRow = (name) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name });
 async function build(def, kino) {
-  const items = def.curated ? (await CURATED[def.curated].load()).map(dress) : (await list({ ...def.q, page: 1 })).items.map(dress);
+  const items = await cached(kino, "row:" + def.id, async () => def.curated ? (await CURATED[def.curated].load()).map(dress) : (await list({ ...def.q, page: 1 })).items.map(dress));
   const capped = items.slice(0, ROW_CAP);
   if (!capped.length) return null;
   const ref = def.curated ? "cur:" + def.curated : listRef(def.q.type, def.q.country, def.q.status, def.q.order);
@@ -357,10 +387,10 @@ async function tabRows(kino, tabId, slug) {
 }
 async function heroPicks(kino, rows, n = 5) {
   const items = [...new Map(rows.flatMap((r) => r.items).filter((i) => i.title && hostOk(i.poster)).map((i) => [i.id, i])).values()];
-  const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n + 3);
+  const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n);
   const cards = await Promise.all(pool.map(async (i) => {
     try {
-      const text = clip((await drama(i.id)).description);
+      const text = clip((await cached(kino, "drama:" + i.id, () => drama(i.id))).description);
       return { item: i, text };
     } catch (e) {
       kino.log("[kisskh]", "hero detail", e && e.code || "error");
@@ -1999,6 +2029,7 @@ async function playerEvent() {
 }
 
 // src/plugin.js
+globalThis.__kinoDropPendingFetches = true;
 var getKino = () => globalThis.kino;
 async function search3(query) {
   const kino = getKino();

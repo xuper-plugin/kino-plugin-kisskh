@@ -10,6 +10,7 @@
 
 import { list, drama, search as siteSearch, lastUpdate, topRating, mostView, animate, mostSearch, upcoming } from "./api.js";
 import { t } from "./i18n.js";
+import { cached } from "./screenCache.js";
 
 const ROW_CAP = 24;
 const MAX_PAGE = 2000;
@@ -85,9 +86,9 @@ const listRow = (slug, titleKey, q) => ({ id: `${slug}.${q.type}`, titleKey, q: 
 const curatedRow = (name) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name });
 
 async function build(def, kino) {
-  const items = def.curated
+  const items = await cached(kino, "row:" + def.id, async () => (def.curated
     ? (await CURATED[def.curated].load()).map(dress)
-    : (await list({ ...def.q, page: 1 })).items.map(dress);
+    : (await list({ ...def.q, page: 1 })).items.map(dress)));
   const capped = items.slice(0, ROW_CAP);
   if (!capped.length) return null;
   const ref = def.curated ? "cur:" + def.curated : listRef(def.q.type, def.q.country, def.q.status, def.q.order);
@@ -208,10 +209,10 @@ export async function tabRows(kino, tabId, slug) {
 /** The featured titles for a carousel, from rows already fetched: up to [n] distinct titles with a picture on a declared host (wide TMDB ones first), each with its overview when the site answers. */
 export async function heroPicks(kino, rows, n = 5) {
   const items = [...new Map(rows.flatMap((r) => r.items).filter((i) => i.title && hostOk(i.poster)).map((i) => [i.id, i])).values()];
-  const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n + 3);
+  const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n); // one detail request per card, all at once
   const cards = await Promise.all(pool.map(async (i) => {
     try {
-      const text = clip((await drama(i.id)).description);
+      const text = clip((await cached(kino, "drama:" + i.id, () => drama(i.id))).description);
       return { item: i, text };
     } catch (e) {
       kino.log("[kisskh]", "hero detail", (e && e.code) || "error");
