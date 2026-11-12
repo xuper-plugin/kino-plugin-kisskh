@@ -2,6 +2,8 @@
 import { t } from "./i18n.js";
 import * as catalog from "./catalog.js";
 import * as detail from "./detail.js";
+import * as playback from "./resolve.js";
+import { readSettings } from "./settings.js";
 
 const getKino = () => globalThis.kino;
 
@@ -15,13 +17,6 @@ const unavailable = (what) => {
 export async function search() {
   return [];
 }
-
-/** The settings the catalogue reads: a toggle arrives as true/false (or the text of it); on unless turned off. */
-const readSettings = (kino) => {
-  let v;
-  try { v = kino.config.get("homeRows"); } catch (_) { /* no config */ }
-  return { homeRows: !(v === false || v === "false") };
-};
 
 /** `home()`: the rows shown on Kino's Home. */
 export async function home() {
@@ -56,8 +51,8 @@ export async function details(ref) {
 }
 
 /** `resolve(ref)`: the Stream to play. */
-export async function resolve() {
-  throw unavailable("resolve");
+export async function resolve(ref) {
+  return playback.resolve(getKino(), ref);
 }
 
 /** `settingsStatus()`: the status line in the settings form. */
