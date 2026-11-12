@@ -1,4 +1,4 @@
-// KissKH: stub exports for every capability the manifest declares. Real logic arrives in later tasks.
+// KissKH: thin wiring of every export Kino calls; the logic lives in the modules.
 import { t, tf } from "./i18n.js";
 import * as catalog from "./catalog.js";
 import * as detail from "./detail.js";
@@ -10,12 +10,6 @@ import { healthLine, recordProbe } from "./health.js";
 import { clearPrefs, LAST_PREFIX, LATEST_KEY } from "./panel/state.js";
 
 const getKino = () => globalThis.kino;
-
-/** What every capability that has nothing to offer yet throws. */
-const unavailable = (what) => {
-  const kino = getKino();
-  return kino.error("unavailable", `${what}: not implemented yet`, { userMessage: t("unavailable", kino) });
-};
 
 /** `search(query)`: the site's matches; inside a "Ver más" page (scopedSearch, `query.within`), that page's matching titles. */
 export async function search(query) {
