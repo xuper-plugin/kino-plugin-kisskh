@@ -3,6 +3,12 @@ var WORDS = {
   es: {
     notFound: "No encontr\xE9 este t\xEDtulo en KissKH.",
     tabHome: "Inicio",
+    watch: "Ver",
+    close: "Cerrar",
+    allCountries: "Todos",
+    screenFailTitle: "No pude cargar KissKH",
+    screenFailText: "Revisa tu conexi\xF3n e int\xE9ntalo de nuevo.",
+    logoAlt: "KissKH",
     tabDramas: "Dramas",
     tabMovies: "Pel\xEDculas",
     tabAnime: "Anime",
@@ -61,6 +67,12 @@ var WORDS = {
   en: {
     notFound: "I could not find this title on KissKH.",
     tabHome: "Home",
+    watch: "Watch",
+    close: "Close",
+    allCountries: "All",
+    screenFailTitle: "Could not load KissKH",
+    screenFailText: "Check your connection and try again.",
+    logoAlt: "KissKH",
     tabDramas: "Dramas",
     tabMovies: "Movies",
     tabAnime: "Anime",
@@ -331,6 +343,31 @@ async function section(kino, settings, tab) {
     if (hero) out.hero = hero;
   }
   return out;
+}
+var countryRows = (type, country, slug) => [
+  listRow(`novedades.${slug}`, "rowLatest", { type, country, order: LATEST }),
+  listRow(`lastupdate.${slug}`, "rowLastUpdate", { type, country, order: UPDATED }),
+  listRow(`recent.${slug}`, "rowNewest", { type, country, order: NEWEST })
+];
+async function tabRows(kino, tabId, slug) {
+  const chosen = TABS.find((x) => x.id === foldTab(tabId)) || TABS[0];
+  const c = COUNTRIES.find((x) => x.slug === slug);
+  if (c) return rowsOf(kino, countryRows(chosen.type || 0, c.country, c.slug));
+  return chosen.type ? rowsOf(kino, TAB_ROWS[chosen.type]) : homeRows(kino);
+}
+async function heroPicks(kino, rows, n = 5) {
+  const items = [...new Map(rows.flatMap((r) => r.items).filter((i) => i.title && hostOk(i.poster)).map((i) => [i.id, i])).values()];
+  const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n + 3);
+  const cards = await Promise.all(pool.map(async (i) => {
+    try {
+      const text = clip((await drama(i.id)).description);
+      return { item: i, text };
+    } catch (e) {
+      kino.log("[kisskh]", "hero detail", e && e.code || "error");
+      return { item: i, text: "" };
+    }
+  }));
+  return cards.slice(0, n);
 }
 var SEARCH_CAP = 100;
 var PAGES_PER_CALL = 3;
@@ -1758,6 +1795,116 @@ function healthLine(kino, health = readHealth(kino)) {
   return `${t("healthApi", kino)} ${state(health.api)} \xB7 ${t("healthSigner", kino)} ${state(health.signer)}`;
 }
 
+// src/logo.js
+var LOGO_DATA = "data:image/png;base64,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";
+
+// src/screen.js
+var tabIds = TABS.map((x) => x.id);
+var countrySlugs = COUNTRIES.filter((c) => c.slug !== "west").map((c) => c.slug);
+var PAGE_PADDING = { compact: 12, expanded: 24 };
+var HERO_COUNT = 5;
+var plain = (o) => o && typeof o === "object" && !Array.isArray(o) ? o : {};
+var both2 = (key2, prop = "text") => {
+  const es = t(key2, { lang: "es" });
+  const en = t(key2, { lang: "en" });
+  return { [prop]: es, [prop + "En"]: en };
+};
+var header = () => ({
+  type: "AppBar",
+  key: "bar",
+  mergeWithKinoBar: true,
+  dense: true,
+  title: { type: "Row", key: "brand", gap: 8, crossAxisAlignment: "center", children: [
+    { type: "Image", key: "logo", url: LOGO_DATA, aspect: "1:1", fit: "contain", h: 32, ...both2("logoAlt", "alt") },
+    { type: "Text", key: "wordmark", text: "KissKH", style: "h3" }
+  ] },
+  leading: { type: "IconButton", key: "barClose", icon: "close", ...both2("close", "labelText"), onPressed: { close: true } },
+  bottom: {
+    type: "TabBar",
+    key: "tabs",
+    divider: false,
+    value: "",
+    onChanged: "tab",
+    tabs: TABS.map((x) => ({ value: x.id, ...both2(x.labelKey, "label") }))
+  }
+});
+function heroPage({ item: item2, text }, i) {
+  const target = { ref: item2.ref, kind: item2.kind, id: item2.id, title: item2.title };
+  return {
+    type: "heroCard",
+    key: "hero-" + item2.id,
+    title: item2.title,
+    titleEn: item2.title,
+    image: item2.poster,
+    ...text ? { text, textEn: text } : {},
+    h: { compact: 240, expanded: 320 },
+    buttons: [{ type: "ElevatedButton", key: "hero-go-" + i, icon: "play", ...both2("watch", "labelText"), onPressed: { go: { title: target } } }]
+  };
+}
+var rail = (row) => ({
+  type: "titleRail",
+  key: "rail-" + row.id,
+  title: row.title,
+  titleEn: row.title,
+  size: "medium",
+  items: row.items,
+  ref: row.ref
+});
+async function buildScreen(kino, state) {
+  const tab = tabIds.includes(state.tab) ? state.tab : "inicio";
+  const country = countrySlugs.includes(state.country) ? state.country : "all";
+  let rows = [];
+  let failed = false;
+  try {
+    rows = await tabRows(kino, tab, country);
+  } catch (e) {
+    kino.log("[kisskh]", "screen rows", e && e.code || "error");
+    failed = true;
+  }
+  const picks = rows.length ? await heroPicks(kino, rows, HERO_COUNT).catch(() => []) : [];
+  const appBar = header();
+  appBar.bottom.value = tab;
+  const children = [];
+  if (picks.length) {
+    children.push({
+      type: "PageView",
+      key: "heroes",
+      autoPlayMs: 6e3,
+      viewportFraction: { compact: 0.94, expanded: 0.7 },
+      padEnds: true,
+      children: picks.map(heroPage)
+    });
+  }
+  children.push({
+    type: "Chips",
+    key: "country",
+    value: country,
+    onChanged: "country",
+    options: [
+      { value: "all", ...both2("allCountries", "label") },
+      ...COUNTRIES.filter((c) => c.slug !== "west").map((c) => ({ value: c.slug, ...both2(c.titleKey, "label") }))
+    ]
+  });
+  if (rows.length) children.push(...rows.map(rail));
+  else {
+    children.push(failed ? { type: "errorState", key: "failed", icon: "refresh", ...both2("screenFailTitle", "title"), ...both2("screenFailText") } : { type: "emptyState", key: "nothing", icon: "movie", ...both2("screenFailTitle", "title") });
+  }
+  return {
+    type: "Scaffold",
+    key: "app",
+    appBar,
+    body: { type: "SingleChildScrollView", key: "page-" + tab, children: [
+      { type: "Column", key: "body", gap: 16, padding: PAGE_PADDING, children }
+    ] }
+  };
+}
+function handleEvent(event) {
+  const { name, value } = plain(event);
+  if (name === "tab" && tabIds.includes(value)) return { state: { tab: value } };
+  if (name === "country") return { state: { country: countrySlugs.includes(value) ? value : "all" } };
+  return null;
+}
+
 // src/panel/index.js
 var MAX_LANG_CHARS = 20;
 var KEYS2 = ["preferredSubLang", "maxQuality"];
@@ -1870,6 +2017,12 @@ async function section2(arg) {
   const kino = getKino();
   return section(kino, readSettings(kino), arg && arg.tab);
 }
+async function screen(ctx) {
+  return buildScreen(getKino(), ctx && ctx.state || {});
+}
+async function screenEvent(event) {
+  return handleEvent(event);
+}
 async function categories2() {
   return categories(getKino());
 }
@@ -1938,6 +2091,8 @@ export {
   panelAction,
   playerEvent,
   resolve3 as resolve,
+  screen,
+  screenEvent,
   search3 as search,
   section2 as section,
   settingsStatus,

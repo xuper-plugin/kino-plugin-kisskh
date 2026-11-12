@@ -139,7 +139,7 @@ export async function home(kino, settings) {
   return settings.homeRows ? homeRows(kino) : [];
 }
 
-const TABS = [
+export const TABS = [
   { id: "inicio", labelKey: "tabHome" },
   { id: "dramas", labelKey: "tabDramas", type: 1 },
   { id: "peliculas", labelKey: "tabMovies", type: 2 },
@@ -190,6 +190,37 @@ export async function section(kino, settings, tab) {
   return out;
 }
 
+/** A tab narrowed to one country: that country's newest, latest updates and recent additions within the tab's type. */
+const countryRows = (type, country, slug) => [
+  listRow(`novedades.${slug}`, "rowLatest", { type, country, order: LATEST }),
+  listRow(`lastupdate.${slug}`, "rowLastUpdate", { type, country, order: UPDATED }),
+  listRow(`recent.${slug}`, "rowNewest", { type, country, order: NEWEST }),
+];
+
+/** The rows of tab [tabId] (Inicio when unknown), narrowed to country [slug] ("kr", "cn"... ; anything else: all countries). */
+export async function tabRows(kino, tabId, slug) {
+  const chosen = TABS.find((x) => x.id === foldTab(tabId)) || TABS[0];
+  const c = COUNTRIES.find((x) => x.slug === slug);
+  if (c) return rowsOf(kino, countryRows(chosen.type || 0, c.country, c.slug));
+  return chosen.type ? rowsOf(kino, TAB_ROWS[chosen.type]) : homeRows(kino);
+}
+
+/** The featured titles for a carousel, from rows already fetched: up to [n] distinct titles with a picture on a declared host (wide TMDB ones first), each with its overview when the site answers. */
+export async function heroPicks(kino, rows, n = 5) {
+  const items = [...new Map(rows.flatMap((r) => r.items).filter((i) => i.title && hostOk(i.poster)).map((i) => [i.id, i])).values()];
+  const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n + 3);
+  const cards = await Promise.all(pool.map(async (i) => {
+    try {
+      const text = clip((await drama(i.id)).description);
+      return { item: i, text };
+    } catch (e) {
+      kino.log("[kisskh]", "hero detail", (e && e.code) || "error");
+      return { item: i, text: "" };
+    }
+  }));
+  return cards.slice(0, n);
+}
+
 const SEARCH_CAP = 100;
 const PAGES_PER_CALL = 3;
 
@@ -226,7 +257,7 @@ export async function searchWithin(kino, within, q, cursor) {
 }
 
 /** Category tiles: by country (list country filter) then by type. Ids are colon-free slugs; the list: form lives in `ref`. */
-const COUNTRIES = [
+export const COUNTRIES = [
   { slug: "kr", country: COUNTRY_KR, titleKey: "catKorean" },
   { slug: "cn", country: COUNTRY_CN, titleKey: "catChinese" },
   { slug: "jp", country: 3, titleKey: "catJapanese" },

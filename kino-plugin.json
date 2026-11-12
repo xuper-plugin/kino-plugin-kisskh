@@ -31,7 +31,8 @@
     "episodes",
     "resolve",
     "scopedSearch",
-    "download"
+    "download",
+    "screen"
   ],
   "streamHosts": "any",
   "categories": [
@@ -39,10 +40,6 @@
     "series"
   ],
   "color": "#E91E63",
-  "section": {
-    "label": "KissKH",
-    "labelEn": "KissKH"
-  },
   "theme": {
     "accent": "#E0245E",
     "onAccent": "#FFFFFF",
@@ -173,5 +170,15 @@
       "confirm": "¿Volver a los valores de fábrica de KissKH?",
       "confirmEn": "Go back to KissKH's default settings?"
     }
-  ]
+  ],
+  "screen": {
+    "label": "KissKH",
+    "labelEn": "KissKH",
+    "iconFile": "panel-icon.png",
+    "menuOpens": "screen",
+    "opensFrom": [
+      "menu"
+    ],
+    "settingsIn": "settings"
+  }
 }

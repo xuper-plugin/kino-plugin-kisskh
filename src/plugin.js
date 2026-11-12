@@ -7,6 +7,7 @@ import { videoUrl } from "./resolve.js";
 import { list } from "./api.js";
 import { readSettings, validateSettings as validate, VALUE_KEYS } from "./settings.js";
 import { healthLine, recordProbe } from "./health.js";
+import { buildScreen, handleEvent } from "./screen.js";
 import { clearPrefs, LAST_PREFIX, LATEST_KEY } from "./panel/state.js";
 
 const getKino = () => globalThis.kino;
@@ -34,6 +35,16 @@ export async function browse(ref, cursor) {
 export async function section(arg) {
   const kino = getKino();
   return catalog.section(kino, readSettings(kino), arg && arg.tab);
+}
+
+/** `screen({ state })`: the plugin's own canvas (logo, featured carousel, tabs, country chips, rails). */
+export async function screen(ctx) {
+  return buildScreen(getKino(), (ctx && ctx.state) || {});
+}
+
+/** `screenEvent(event)`: a tab or country change patches the state; Kino draws the screen again. */
+export async function screenEvent(event) {
+  return handleEvent(event);
 }
 
 /** `categories()`: genre tiles. */

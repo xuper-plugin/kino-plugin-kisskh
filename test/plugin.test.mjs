@@ -9,14 +9,14 @@ const built = await import("../src/plugin.js"); // the bundle is rebuilt by buil
 /** Capabilities that are flags on other exports (scopedSearch rides on search, download on resolve), not exports of their own. */
 const MODIFIERS = ["scopedSearch", "download"];
 const REQUIRED = ["search", "home", "browse", "section", "categories", "episodes", "details", "resolve",
-  "settingsStatus", "action", "validateSettings", "panel", "panelAction", "playerEvent"];
+  "screen", "screenEvent", "settingsStatus", "action", "validateSettings", "panel", "panelAction", "playerEvent"];
 
 test("every manifest capability is an exported function of the plugin entry, and the UI exports exist", () => {
   for (const cap of manifest.capabilities.filter((c) => !MODIFIERS.includes(c))) {
     assert.equal(typeof built[cap], "function", `capability ${cap} has no export`);
   }
   for (const name of REQUIRED) assert.equal(typeof built[name], "function", `missing export ${name}`);
-  assert.ok(manifest.section && manifest.panel && manifest.categories.length, "section, panel and categories are declared");
+  assert.ok(manifest.screen && manifest.screen.menuOpens === "screen" && manifest.panel && manifest.categories.length, "screen, panel and categories are declared");
   assert.equal(built.sign, undefined, "resolve is URL-direct: no sign export");
 });
 
