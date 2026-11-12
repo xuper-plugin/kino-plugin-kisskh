@@ -5,9 +5,10 @@
 //   list:<type>:<country>:<status>:<order>        a browse page; type 0 all, 1 series, 2 movie, 3 anime, 4 Hollywood
 //   genre:<key>                                   a category tile's page, the same list params under a name
 //   e:<dramaId>:<episodeId>:<number>              a series episode (detail.js makes it, resolve reads it)
+//   cur:<name>                                    a curated shelf (one page, no cursor): see CURATED
 //   m:<dramaId>                                   a movie's play ref (resolve reads it)
 
-import { list, search as siteSearch } from "./api.js";
+import { list, search as siteSearch, lastUpdate, topRating, mostView, animate, mostSearch, upcoming } from "./api.js";
 import { t } from "./i18n.js";
 
 const ROW_CAP = 24;
@@ -51,6 +52,10 @@ function parseRef(ref) {
 
 /** `browse(ref, cursor)`: one "Ver más" page, `cursor` the next page number (a string) while more exist. */
 export async function browse(kino, ref, cursor) {
+  const cur = /^cur:([a-z]+)$/.exec(String(ref || ""));
+  if (cur && Object.prototype.hasOwnProperty.call(CURATED, cur[1])) {
+    return Number.parseInt(cursor, 10) > 1 ? { items: [] } : { items: (await CURATED[cur[1]].load()).map(dress) };
+  }
   const q = parseRef(ref);
   if (!q) throw kino.error("not_found", "unknown browse ref");
   const n = Number.parseInt(cursor, 10);
@@ -60,30 +65,71 @@ export async function browse(kino, ref, cursor) {
   return items.length && page < MAX_PAGE && page * r.pageSize < r.totalCount ? { items, cursor: String(page + 1) } : { items };
 }
 
-/** A row's id: its list params joined by "." (the id pattern has no colon; the colon form stays in the row's ref). */
-const rowId = (q) => ["list", q.type, q.country || 0, q.status || 0, q.order || LATEST].join(".");
+const NEWEST = 3; // the site's "recently added" order
+const UPDATED = 2; // the site's "recently updated" order
+const COUNTRY_CN = 1;
+const COUNTRY_KR = 2;
 
-async function row(titleKey, kino, q) {
-  const r = await list({ ...q, page: 1 });
-  const items = r.items.map(dress).slice(0, ROW_CAP);
-  return items.length ? { id: rowId(q), title: t(titleKey, kino), items, ref: listRef(q.type, q.country, q.status, q.order) } : null;
+/** Curated shelves (colon-free names, they are also the row ids): the loader and the shelf's title key. */
+const CURATED = {
+  lastupdate: { load: lastUpdate, titleKey: "rowLastUpdate" },
+  toprating: { load: topRating, titleKey: "rowTopRating" },
+  mostview: { load: () => mostView(COUNTRY_CN), titleKey: "rowMostViewCn" },
+  anime: { load: animate, titleKey: "rowAnime" },
+  mostsearch: { load: mostSearch, titleKey: "rowMostSearch" },
+  upcoming: { load: upcoming, titleKey: "rowUpcoming" },
+};
+
+/** A list-backed row: id "<slug>.<type>" (no colon; the colon form stays in `ref`). */
+const listRow = (slug, titleKey, q) => ({ id: `${slug}.${q.type}`, titleKey, q: { status: 0, ...q } });
+const curatedRow = (name) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name });
+
+async function build(def, kino) {
+  const items = def.curated
+    ? (await CURATED[def.curated].load()).map(dress)
+    : (await list({ ...def.q, page: 1 })).items.map(dress);
+  const capped = items.slice(0, ROW_CAP);
+  if (!capped.length) return null;
+  const ref = def.curated ? "cur:" + def.curated : listRef(def.q.type, def.q.country, def.q.status, def.q.order);
+  return { id: def.id, title: t(def.titleKey, kino), items: capped, ref };
 }
 
-const TYPE_ROWS = [
-  ["rowSeries", 1],
-  ["rowMovies", 2],
-  ["rowAnime", 3],
-];
-
-/** The rows of Inicio: the newest of everything, then of each type. Rows that fail or come back empty are left out. */
-async function homeRows(kino) {
-  const defs = [["rowLatest", 0], ...TYPE_ROWS];
-  const rows = await Promise.all(defs.map(([key, type]) => row(key, kino, { type, order: LATEST }).catch((e) => {
-    kino.log("[kisskh]", "row", key, (e && e.code) || "error");
+/** The rows of [defs] fetched side by side; one that fails or comes back empty is left out. */
+async function rowsOf(kino, defs) {
+  const rows = await Promise.all(defs.map((d) => build(d, kino).catch((e) => {
+    kino.log("[kisskh]", "row", d.id, (e && e.code) || "error");
     return null;
   })));
   return rows.filter(Boolean);
 }
+
+const HOME_ROWS = [
+  listRow("novedades", "rowLatest", { type: 0, order: LATEST }),
+  curatedRow("lastupdate"),
+  listRow("mostview.kr", "rowMostViewKr", { type: 0, country: COUNTRY_KR, order: LATEST }),
+  listRow("mostview.cn", "rowMostViewCn", { type: 0, country: COUNTRY_CN, order: LATEST }),
+  curatedRow("toprating"),
+  curatedRow("mostsearch"),
+  curatedRow("anime"),
+  curatedRow("upcoming"),
+];
+
+/** A type tab's rows: its newest, its latest updates, Korea and China favourites, then the shelves that fit it. */
+const typeRows = (type, extra) => [
+  listRow("novedades", "rowLatest", { type, order: LATEST }),
+  listRow("lastupdate", "rowLastUpdate", { type, order: UPDATED }),
+  listRow("mostview.kr", "rowMostViewKr", { type, country: COUNTRY_KR, order: LATEST }),
+  listRow("mostview.cn", "rowMostViewCn", { type, country: COUNTRY_CN, order: LATEST }),
+  ...extra,
+];
+
+const TAB_ROWS = {
+  1: typeRows(1, [curatedRow("toprating"), listRow("recent", "rowNewest", { type: 1, order: NEWEST })]),
+  2: typeRows(2, [curatedRow("toprating"), listRow("hollywood", "rowHollywood", { type: 4, order: LATEST })]),
+  3: typeRows(3, [curatedRow("anime"), listRow("recent", "rowNewest", { type: 3, order: NEWEST })]),
+};
+
+const homeRows = (kino) => rowsOf(kino, HOME_ROWS);
 
 /** `home()`: the rows of Kino's Home, none when the person turned them off. */
 export async function home(kino, settings) {
@@ -102,12 +148,7 @@ const foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").
 /** `section({ tab })`: Inicio (the home rows, whatever the Home toggle says) and one tab per type. */
 export async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
-  const rows = chosen.type
-    ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST }).catch((e) => {
-        kino.log("[kisskh]", "row", chosen.id, (e && e.code) || "error");
-        return null;
-      })].filter(Boolean)
-    : await homeRows(kino);
+  const rows = chosen.type ? await rowsOf(kino, TAB_ROWS[chosen.type]) : await homeRows(kino);
   return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
 }
 

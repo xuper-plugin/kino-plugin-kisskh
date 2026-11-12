@@ -7,6 +7,14 @@ var WORDS = {
     tabMovies: "Pel\xEDculas",
     tabAnime: "Anime",
     rowLatest: "Novedades",
+    rowLastUpdate: "\xDAltimas actualizaciones",
+    rowTopRating: "Mejor valorados",
+    rowMostViewKr: "M\xE1s vistos (Corea)",
+    rowMostViewCn: "M\xE1s vistos (China)",
+    rowMostSearch: "M\xE1s buscados",
+    rowUpcoming: "Pr\xF3ximamente",
+    rowHollywood: "Hollywood",
+    rowNewest: "Reci\xE9n agregados",
     rowSeries: "Dramas",
     rowMovies: "Pel\xEDculas",
     rowAnime: "Anime",
@@ -47,6 +55,14 @@ var WORDS = {
     tabMovies: "Movies",
     tabAnime: "Anime",
     rowLatest: "New releases",
+    rowLastUpdate: "Latest updates",
+    rowTopRating: "Top rated",
+    rowMostViewKr: "Most viewed (Korea)",
+    rowMostViewCn: "Most viewed (China)",
+    rowMostSearch: "Most searched",
+    rowUpcoming: "Coming soon",
+    rowHollywood: "Hollywood",
+    rowNewest: "Recently added",
     rowSeries: "Dramas",
     rowMovies: "Movies",
     rowAnime: "Anime",
@@ -143,6 +159,17 @@ async function drama(id) {
     episodesCount: j.episodesCount | 0
   };
 }
+async function curated(path) {
+  const j = await getJson(`${API}/${path}`);
+  const arr = Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : [];
+  return arr.filter((d) => d && d.id != null).map(item);
+}
+var lastUpdate = () => curated("LastUpdate?ispc=false");
+var topRating = () => curated("TopRating?ispc=false");
+var mostView = (country = 1) => curated(`MostView?ispc=false&country=${country | 0}`);
+var animate = () => curated("Animate?ispc=false");
+var mostSearch = () => curated("MostSearch?ispc=false");
+var upcoming = () => curated("Upcoming?ispc=false");
 
 // src/catalog.js
 var ROW_CAP = 24;
@@ -176,6 +203,10 @@ function parseRef(ref) {
   return null;
 }
 async function browse(kino, ref, cursor) {
+  const cur = /^cur:([a-z]+)$/.exec(String(ref || ""));
+  if (cur && Object.prototype.hasOwnProperty.call(CURATED, cur[1])) {
+    return Number.parseInt(cursor, 10) > 1 ? { items: [] } : { items: (await CURATED[cur[1]].load()).map(dress) };
+  }
   const q = parseRef(ref);
   if (!q) throw kino.error("not_found", "unknown browse ref");
   const n = Number.parseInt(cursor, 10);
@@ -184,25 +215,57 @@ async function browse(kino, ref, cursor) {
   const items = r.items.map(dress);
   return items.length && page < MAX_PAGE && page * r.pageSize < r.totalCount ? { items, cursor: String(page + 1) } : { items };
 }
-var rowId = (q) => ["list", q.type, q.country || 0, q.status || 0, q.order || LATEST].join(".");
-async function row(titleKey, kino, q) {
-  const r = await list({ ...q, page: 1 });
-  const items = r.items.map(dress).slice(0, ROW_CAP);
-  return items.length ? { id: rowId(q), title: t(titleKey, kino), items, ref: listRef(q.type, q.country, q.status, q.order) } : null;
+var NEWEST = 3;
+var UPDATED = 2;
+var COUNTRY_CN = 1;
+var COUNTRY_KR = 2;
+var CURATED = {
+  lastupdate: { load: lastUpdate, titleKey: "rowLastUpdate" },
+  toprating: { load: topRating, titleKey: "rowTopRating" },
+  mostview: { load: () => mostView(COUNTRY_CN), titleKey: "rowMostViewCn" },
+  anime: { load: animate, titleKey: "rowAnime" },
+  mostsearch: { load: mostSearch, titleKey: "rowMostSearch" },
+  upcoming: { load: upcoming, titleKey: "rowUpcoming" }
+};
+var listRow = (slug, titleKey, q) => ({ id: `${slug}.${q.type}`, titleKey, q: { status: 0, ...q } });
+var curatedRow = (name) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name });
+async function build(def, kino) {
+  const items = def.curated ? (await CURATED[def.curated].load()).map(dress) : (await list({ ...def.q, page: 1 })).items.map(dress);
+  const capped = items.slice(0, ROW_CAP);
+  if (!capped.length) return null;
+  const ref = def.curated ? "cur:" + def.curated : listRef(def.q.type, def.q.country, def.q.status, def.q.order);
+  return { id: def.id, title: t(def.titleKey, kino), items: capped, ref };
 }
-var TYPE_ROWS = [
-  ["rowSeries", 1],
-  ["rowMovies", 2],
-  ["rowAnime", 3]
-];
-async function homeRows(kino) {
-  const defs = [["rowLatest", 0], ...TYPE_ROWS];
-  const rows = await Promise.all(defs.map(([key2, type]) => row(key2, kino, { type, order: LATEST }).catch((e) => {
-    kino.log("[kisskh]", "row", key2, e && e.code || "error");
+async function rowsOf(kino, defs) {
+  const rows = await Promise.all(defs.map((d) => build(d, kino).catch((e) => {
+    kino.log("[kisskh]", "row", d.id, e && e.code || "error");
     return null;
   })));
   return rows.filter(Boolean);
 }
+var HOME_ROWS = [
+  listRow("novedades", "rowLatest", { type: 0, order: LATEST }),
+  curatedRow("lastupdate"),
+  listRow("mostview.kr", "rowMostViewKr", { type: 0, country: COUNTRY_KR, order: LATEST }),
+  listRow("mostview.cn", "rowMostViewCn", { type: 0, country: COUNTRY_CN, order: LATEST }),
+  curatedRow("toprating"),
+  curatedRow("mostsearch"),
+  curatedRow("anime"),
+  curatedRow("upcoming")
+];
+var typeRows = (type, extra) => [
+  listRow("novedades", "rowLatest", { type, order: LATEST }),
+  listRow("lastupdate", "rowLastUpdate", { type, order: UPDATED }),
+  listRow("mostview.kr", "rowMostViewKr", { type, country: COUNTRY_KR, order: LATEST }),
+  listRow("mostview.cn", "rowMostViewCn", { type, country: COUNTRY_CN, order: LATEST }),
+  ...extra
+];
+var TAB_ROWS = {
+  1: typeRows(1, [curatedRow("toprating"), listRow("recent", "rowNewest", { type: 1, order: NEWEST })]),
+  2: typeRows(2, [curatedRow("toprating"), listRow("hollywood", "rowHollywood", { type: 4, order: LATEST })]),
+  3: typeRows(3, [curatedRow("anime"), listRow("recent", "rowNewest", { type: 3, order: NEWEST })])
+};
+var homeRows = (kino) => rowsOf(kino, HOME_ROWS);
 async function home(kino, settings) {
   return settings.homeRows ? homeRows(kino) : [];
 }
@@ -215,10 +278,7 @@ var TABS = [
 var foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
-  const rows = chosen.type ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST }).catch((e) => {
-    kino.log("[kisskh]", "row", chosen.id, e && e.code || "error");
-    return null;
-  })].filter(Boolean) : await homeRows(kino);
+  const rows = chosen.type ? await rowsOf(kino, TAB_ROWS[chosen.type]) : await homeRows(kino);
   return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
 }
 var SEARCH_CAP = 100;

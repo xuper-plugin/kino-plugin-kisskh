@@ -38,3 +38,23 @@ export async function drama(id) {
     episodesCount: j.episodesCount | 0,
   };
 }
+
+/** A curated endpoint's items: the site answers a flat array (a `{data}` wrapper is tolerated), normalized like a list page. */
+async function curated(path) {
+  const j = await getJson(`${API}/${path}`);
+  const arr = Array.isArray(j) ? j : j && Array.isArray(j.data) ? j.data : [];
+  return arr.filter((d) => d && d.id != null).map(item);
+}
+
+/** Recently updated titles. */
+export const lastUpdate = () => curated("LastUpdate?ispc=false");
+/** Best rated titles. */
+export const topRating = () => curated("TopRating?ispc=false");
+/** Most viewed titles; the site ignores `country` today (the answer is the same), it is sent as its own page does. */
+export const mostView = (country = 1) => curated(`MostView?ispc=false&country=${country | 0}`);
+/** The anime shelf. */
+export const animate = () => curated("Animate?ispc=false");
+/** Most searched titles. */
+export const mostSearch = () => curated("MostSearch?ispc=false");
+/** Titles announced for later (`label` carries the date, episodesCount may be 0). */
+export const upcoming = () => curated("Upcoming?ispc=false");

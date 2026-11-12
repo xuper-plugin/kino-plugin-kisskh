@@ -47,7 +47,7 @@ test("home is gated by settings.homeRows", async () => {
   assert.equal(calls.length, 0);
   const rows = await home(kino, { homeRows: true });
   assert.ok(rows.length >= 2);
-  assert.ok(rows.every((r) => r.title && r.items.length && /^list:/.test(r.ref)));
+  assert.ok(rows.every((r) => r.title && r.items.length && /^(list|cur):/.test(r.ref)));
 });
 
 test("categories refs are browsable", async () => {
@@ -82,7 +82,7 @@ test("every id the host validates is colon-free, and refs keep the colon form", 
     assert.equal(new Set(ids).size, ids.length, "row ids are unique");
     for (const r of rows) {
       assert.match(r.id, ID);
-      assert.match(r.ref, /^list:/);
+      assert.match(r.ref, /^(list|cur):/);
       for (const i of r.items) { assert.match(i.id, ID); assert.match(i.ref, /^d:\d+$/); }
     }
   };
