@@ -35,13 +35,16 @@ test("within a Ver mas page, only that page's titles containing the query are re
 });
 
 test("query.type puts the hinted kind first and keeps every match", async () => {
-  site();
-  const all = await search("x");
-  const movies = await search({ q: "x", type: "movie" });
-  assert.equal(movies.length, all.length);
-  assert.ok(all.some((i) => i.kind === "series"));
-  const firstNonMovie = movies.findIndex((i) => i.kind !== "movie");
-  assert.ok(movies.slice(firstNonMovie).every((i) => i.kind !== "movie"));
-  const series = await search({ q: "x", type: "series" });
-  assert.equal(series[0].kind, "series");
+  const mixed = [
+    { id: 1, title: "S1", thumbnail: "", episodesCount: 16, label: "" },
+    { id: 2, title: "M1", thumbnail: "", episodesCount: 1, label: "" },
+    { id: 3, title: "S2", thumbnail: "", episodesCount: 12, label: "" },
+    { id: 4, title: "M2", thumbnail: "", episodesCount: 1, label: "" },
+  ];
+  site(JSON.stringify(mixed));
+  const ids = (items) => items.map((i) => i.ref);
+  assert.deepEqual(ids(await search("x")), ["d:1", "d:2", "d:3", "d:4"]); // no hint: the site's order
+  assert.deepEqual(ids(await search({ q: "x", type: "movie" })), ["d:2", "d:4", "d:1", "d:3"]);
+  assert.deepEqual(ids(await search({ q: "x", type: "series" })), ["d:1", "d:3", "d:2", "d:4"]);
+  assert.deepEqual(ids(await search({ q: "x", type: "other" })), ["d:1", "d:2", "d:3", "d:4"]);
 });
