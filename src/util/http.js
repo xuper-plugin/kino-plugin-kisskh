@@ -13,6 +13,7 @@ export const get = (url, kino = globalThis.kino) =>
  */
 export async function getJson(url, kino = globalThis.kino) {
   const r = await get(url, kino);
+  if (!r.ok) throw kino.error("unavailable", `HTTP ${r.status} from ${url}`, { userMessage: t("unavailable", kino) });
   try {
     return r.json();
   } catch (_) {

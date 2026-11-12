@@ -57,3 +57,9 @@ test("an HTML body (a Cloudflare challenge) throws unavailable", async () => {
   await assert.rejects(getJson("https://kisskh.do/api/DramaList/List"), (e) => e.code === "unavailable");
   await assert.rejects(search("x"), (e) => e.code === "unavailable");
 });
+
+test("a non-200 answer with a JSON body throws unavailable", async () => {
+  const { kino } = fakeKino({ fetch: async () => ({ status: 503, body: "{\"error\":\"down\"}" }) });
+  globalThis.kino = kino;
+  await assert.rejects(getJson("https://kisskh.do/api/DramaList/List"), (e) => e.code === "unavailable");
+});

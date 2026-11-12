@@ -16,12 +16,14 @@ export { viaBrowser } from "./browserLane.js";
 const API = ORIGIN + "/api";
 const MAX_SUBTITLES = 30;
 
-/** "e:<drama>:<episode>:<number>" or "m:<drama>" -> { dramaId, episodeId, number } (a movie's episode is looked up), else null. */
+/**
+ * "e:<drama>:<episode>:<number>", "m:<drama>" or "d:<drama>" -> { dramaId, episodeId, number } (a movie's episode is looked up), else null.
+ * A `d:` ref reaches resolve only for a movie-kind tile (a series goes through episodes() and gets `e:` refs), so it plays the first episode. */
 async function parsePlay(ref) {
   const s = String(ref || "");
   const e = /^e:(\d{1,9}):(\d{1,9}):(\d+(?:\.\d+)?)$/.exec(s);
   if (e) return { dramaId: e[1], episodeId: +e[2], number: parseFloat(e[3]) };
-  const m = /^m:(\d{1,9})$/.exec(s);
+  const m = /^[md]:(\d{1,9})$/.exec(s);
   if (!m) return null;
   const first = (await drama(m[1])).episodes[0];
   return first ? { dramaId: m[1], episodeId: first.id, number: first.number } : null;
@@ -67,7 +69,7 @@ async function signed(kino, ref, play, settings) {
   return stream;
 }
 
-/** `resolve(kino, ref)`: the Stream for an `e:` episode or an `m:` movie ref. */
+/** `resolve(kino, ref)`: the Stream for an `e:` episode or an `m:`/`d:` movie ref. */
 export async function resolve(kino, ref) {
   const play = await parsePlay(ref);
   if (!play) throw kino.error("not_found", "not a playable KissKH ref", { userMessage: t("notFound", kino) });

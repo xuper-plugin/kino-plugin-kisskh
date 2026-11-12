@@ -62,3 +62,11 @@ test("categories refs are browsable", async () => {
     assert.equal(calls.length, 1);
   }
 });
+
+test("a type tab whose row fails still answers, with no rows", async () => {
+  const { kino } = fakeKino({ fetch: async () => ({ status: 500, body: "{}" }) });
+  globalThis.kino = kino;
+  const s = await section(kino, {}, "Dramas");
+  assert.deepEqual(s.rows, []);
+  assert.equal(s.tab, "dramas");
+});

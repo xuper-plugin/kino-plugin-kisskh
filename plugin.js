@@ -103,6 +103,7 @@ var ORIGIN = "https://kisskh.do";
 var get = (url, kino = globalThis.kino) => kino.fetch(url, { headers: { "User-Agent": UA, Referer: ORIGIN + "/", Accept: "application/json" } });
 async function getJson(url, kino = globalThis.kino) {
   const r = await get(url, kino);
+  if (!r.ok) throw kino.error("unavailable", `HTTP ${r.status} from ${url}`, { userMessage: t("unavailable", kino) });
   try {
     return r.json();
   } catch (_) {
@@ -211,7 +212,10 @@ var TABS = [
 var foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
-  const rows = chosen.type ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST })].filter(Boolean) : await homeRows(kino);
+  const rows = chosen.type ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST }).catch((e) => {
+    kino.log("[kisskh]", "row", chosen.id, e && e.code || "error");
+    return null;
+  })].filter(Boolean) : await homeRows(kino);
   return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
 }
 var SEARCH_CAP = 100;
@@ -1552,7 +1556,7 @@ async function parsePlay(ref) {
   const s = String(ref || "");
   const e = /^e:(\d{1,9}):(\d{1,9}):(\d+(?:\.\d+)?)$/.exec(s);
   if (e) return { dramaId: e[1], episodeId: +e[2], number: parseFloat(e[3]) };
-  const m = /^m:(\d{1,9})$/.exec(s);
+  const m = /^[md]:(\d{1,9})$/.exec(s);
   if (!m) return null;
   const first = (await drama(m[1])).episodes[0];
   return first ? { dramaId: m[1], episodeId: first.id, number: first.number } : null;

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fakeKino, fixture } from "./helpers/fakeKino.mjs";
 import { resolve, viaBrowser } from "../src/resolve.js";
+import { dress } from "../src/catalog.js";
 import { UA } from "../src/util/http.js";
 
 const GOOD_SUB = "https://sub.cdnvideo11.shop/English-EP1-The-First-Frost.srt.txt1?v=1";
@@ -101,9 +102,19 @@ test("an m: ref fetches the detail and plays episodes[0]", async () => {
   assert.ok(calls.some((c) => c.url.includes(`/Episode/${movie.episodes[0].id}.png`)));
 });
 
+test("a movie resolves through the exact ref its tile carries", async () => {
+  const movie = JSON.parse(fixture("movie.json"));
+  const tile = dress({ id: movie.id, title: "M", thumbnail: "https://x/p.jpg", episodesCount: 1 });
+  assert.equal(tile.kind, "movie");
+  const { kino, calls } = site({ drama: fixture("movie.json") });
+  const s = await resolve(kino, tile.ref);
+  assert.equal(s.url, JSON.parse(fixture("episode_mp4.json")).Video);
+  assert.ok(calls.some((c) => c.url.includes(`/Episode/${movie.episodes[0].id}.png`)));
+});
+
 test("a ref that is not playable is not_found", async () => {
   const { kino } = site();
-  await assert.rejects(() => resolve(kino, "d:8316"), (e) => e.code === "not_found");
+  await assert.rejects(() => resolve(kino, "x:1"), (e) => e.code === "not_found");
   await assert.rejects(() => resolve(kino, "e:8316:x:1"), (e) => e.code === "not_found");
 });
 

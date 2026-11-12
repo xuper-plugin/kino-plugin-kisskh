@@ -99,7 +99,10 @@ const foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").
 export async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
   const rows = chosen.type
-    ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST })].filter(Boolean)
+    ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST }).catch((e) => {
+        kino.log("[kisskh]", "row", chosen.id, (e && e.code) || "error");
+        return null;
+      })].filter(Boolean)
     : await homeRows(kino);
   return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
 }
