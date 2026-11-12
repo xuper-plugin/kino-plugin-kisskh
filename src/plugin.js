@@ -1,5 +1,6 @@
 // KissKH: stub exports for every capability the manifest declares. Real logic arrives in later tasks.
 import { t } from "./i18n.js";
+import * as catalog from "./catalog.js";
 
 const getKino = () => globalThis.kino;
 
@@ -14,24 +15,33 @@ export async function search() {
   return [];
 }
 
+/** The settings the catalogue reads: a toggle arrives as true/false (or the text of it); on unless turned off. */
+const readSettings = (kino) => {
+  let v;
+  try { v = kino.config.get("homeRows"); } catch (_) { /* no config */ }
+  return { homeRows: !(v === false || v === "false") };
+};
+
 /** `home()`: the rows shown on Kino's Home. */
 export async function home() {
-  return [];
+  const kino = getKino();
+  return catalog.home(kino, readSettings(kino));
 }
 
 /** `browse(ref, cursor)`: a "Ver más" page of a row or a category tile. */
-export async function browse() {
-  return { items: [] };
+export async function browse(ref, cursor) {
+  return catalog.browse(getKino(), ref, cursor);
 }
 
 /** `section({ tab })`: the plugin's own section. */
-export async function section() {
-  return [];
+export async function section(arg) {
+  const kino = getKino();
+  return catalog.section(kino, readSettings(kino), arg && arg.tab);
 }
 
 /** `categories()`: genre tiles. */
 export async function categories() {
-  return [];
+  return catalog.categories(getKino());
 }
 
 /** `episodes(ref)`: a series' episodes. */
