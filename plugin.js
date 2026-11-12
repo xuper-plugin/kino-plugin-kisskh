@@ -9,6 +9,11 @@ var WORDS = {
     screenFailTitle: "No pude cargar KissKH",
     screenFailText: "Revisa tu conexi\xF3n e int\xE9ntalo de nuevo.",
     logoAlt: "KissKH",
+    search: "Buscar",
+    searchClose: "Cerrar la b\xFAsqueda",
+    searchHint: "T\xEDtulo, actor o palabra",
+    searchPrompt: "Escribe para buscar en KissKH",
+    searchNone: "Sin resultados",
     tabDramas: "Dramas",
     tabMovies: "Pel\xEDculas",
     tabAnime: "Anime",
@@ -73,6 +78,11 @@ var WORDS = {
     screenFailTitle: "Could not load KissKH",
     screenFailText: "Check your connection and try again.",
     logoAlt: "KissKH",
+    search: "Search",
+    searchClose: "Close search",
+    searchHint: "Title, actor or keyword",
+    searchPrompt: "Type to search KissKH",
+    searchNone: "No results",
     tabDramas: "Dramas",
     tabMovies: "Movies",
     tabAnime: "Anime",
@@ -205,6 +215,7 @@ var upcoming = () => curated("Upcoming?ispc=false");
 
 // src/screenCache.js
 var TTL_MS = 4 * 60 * 1e3;
+var PENDING_TTL_MS = 30 * 1e3;
 var MAX_ENTRIES = 80;
 var stores = /* @__PURE__ */ new WeakMap();
 var storeOf = (kino) => {
@@ -216,7 +227,11 @@ function cached(kino, key2, load, ttl = TTL_MS) {
   const store = storeOf(kino);
   const now = Date.now();
   const hit = store.get(key2);
-  if (hit && (hit.pending || now - hit.at < ttl)) return hit.pending || Promise.resolve(hit.value);
+  if (hit) {
+    if (hit.pending) {
+      if (now - hit.at < PENDING_TTL_MS) return hit.pending;
+    } else if (now - hit.at < ttl) return Promise.resolve(hit.value);
+  }
   const pending = Promise.resolve().then(load).then(
     (value) => {
       store.set(key2, { at: Date.now(), value });
@@ -1833,30 +1848,49 @@ var tabIds = TABS.map((x) => x.id);
 var countrySlugs = COUNTRIES.filter((c) => c.slug !== "west").map((c) => c.slug);
 var PAGE_PADDING = { compact: 12, expanded: 24 };
 var HERO_COUNT = 5;
+var SEARCH_COLUMNS = { compact: 3, expanded: 6 };
+var SEARCH_MAX_CHARS = 100;
 var plain = (o) => o && typeof o === "object" && !Array.isArray(o) ? o : {};
 var both2 = (key2, prop = "text") => {
   const es = t(key2, { lang: "es" });
   const en = t(key2, { lang: "en" });
   return { [prop]: es, [prop + "En"]: en };
 };
-var header = () => ({
+var brand = () => ({
+  type: "Row",
+  key: "brand",
+  gap: 8,
+  crossAxisAlignment: "center",
+  children: [
+    { type: "Image", key: "logo", url: LOGO_DATA, aspect: "1:1", fit: "contain", h: 32, ...both2("logoAlt", "alt") },
+    { type: "Text", key: "wordmark", text: "KissKH", style: "h3" }
+  ]
+});
+var browseBar = (tab) => ({
   type: "AppBar",
   key: "bar",
   mergeWithKinoBar: true,
   dense: true,
-  title: { type: "Row", key: "brand", gap: 8, crossAxisAlignment: "center", children: [
-    { type: "Image", key: "logo", url: LOGO_DATA, aspect: "1:1", fit: "contain", h: 32, ...both2("logoAlt", "alt") },
-    { type: "Text", key: "wordmark", text: "KissKH", style: "h3" }
-  ] },
+  title: brand(),
   leading: { type: "IconButton", key: "barClose", icon: "close", ...both2("close", "labelText"), onPressed: { close: true } },
+  actions: [{ type: "IconButton", key: "openSearch", icon: "search", ...both2("search", "labelText"), onPressed: "open_search" }],
   bottom: {
     type: "TabBar",
     key: "tabs",
     divider: false,
-    value: "",
+    value: tab,
     onChanged: "tab",
     tabs: TABS.map((x) => ({ value: x.id, ...both2(x.labelKey, "label") }))
   }
+});
+var searchBar = () => ({
+  type: "AppBar",
+  key: "bar",
+  mergeWithKinoBar: true,
+  dense: true,
+  title: brand(),
+  leading: { type: "IconButton", key: "barBack", icon: "arrow_back", ...both2("searchClose", "labelText"), onPressed: "close_search" },
+  actions: []
 });
 function heroPage({ item: item2, text }, i) {
   const target = { ref: item2.ref, kind: item2.kind, id: item2.id, title: item2.title };
@@ -1880,7 +1914,7 @@ var rail = (row) => ({
   items: row.items,
   ref: row.ref
 });
-async function buildScreen(kino, state) {
+async function browseView(kino, state) {
   const tab = tabIds.includes(state.tab) ? state.tab : "inicio";
   const country = countrySlugs.includes(state.country) ? state.country : "all";
   let rows = [];
@@ -1892,8 +1926,6 @@ async function buildScreen(kino, state) {
     failed = true;
   }
   const picks = rows.length ? await heroPicks(kino, rows, HERO_COUNT).catch(() => []) : [];
-  const appBar = header();
-  appBar.bottom.value = tab;
   const children = [];
   if (picks.length) {
     children.push({
@@ -1922,16 +1954,60 @@ async function buildScreen(kino, state) {
   return {
     type: "Scaffold",
     key: "app",
-    appBar,
+    appBar: browseBar(tab),
     body: { type: "SingleChildScrollView", key: "page-" + tab, children: [
       { type: "Column", key: "body", gap: 16, padding: PAGE_PADDING, children }
     ] }
   };
 }
-function handleEvent(event) {
+function searchView(state) {
+  const query = typeof state.query === "string" ? state.query : "";
+  const results = Array.isArray(state.results) ? state.results : [];
+  const children = [
+    {
+      type: "TextField",
+      key: "q",
+      kind: "search",
+      value: query,
+      autofocus: true,
+      maxLength: SEARCH_MAX_CHARS,
+      ...both2("search", "labelText"),
+      ...both2("searchHint", "hintText"),
+      onSubmitted: "query"
+    }
+  ];
+  if (results.length) children.push({ type: "titleGrid", key: "results", columns: SEARCH_COLUMNS, items: results });
+  else children.push(query ? { type: "emptyState", key: "none", icon: "search", ...both2("searchNone", "title") } : { type: "emptyState", key: "prompt", icon: "search", ...both2("searchPrompt", "title") });
+  return {
+    type: "Scaffold",
+    key: "app",
+    onBack: "close_search",
+    appBar: searchBar(),
+    body: { type: "SingleChildScrollView", key: "search", children: [
+      { type: "Column", key: "searchBody", gap: 16, padding: PAGE_PADDING, children }
+    ] }
+  };
+}
+async function buildScreen(kino, state) {
+  return state.searching === true ? searchView(state) : browseView(kino, state);
+}
+async function handleEvent(kino, event) {
   const { name, value } = plain(event);
   if (name === "tab" && tabIds.includes(value)) return { state: { tab: value } };
   if (name === "country") return { state: { country: countrySlugs.includes(value) ? value : "all" } };
+  if (name === "open_search") return { state: { searching: true, query: "", results: [] } };
+  if (name === "close_search") return { state: { searching: false, query: "", results: [] } };
+  if (name === "query") {
+    const q = String(value == null ? "" : value).trim();
+    if (!q) return { state: { query: "", results: [] } };
+    let results = [];
+    try {
+      results = await search2(kino, q);
+    } catch (e) {
+      kino.log("[kisskh]", "screen search", e && e.code || "error");
+    }
+    return { state: { query: q, results } };
+  }
   return null;
 }
 
@@ -2052,7 +2128,7 @@ async function screen(ctx) {
   return buildScreen(getKino(), ctx && ctx.state || {});
 }
 async function screenEvent(event) {
-  return handleEvent(event);
+  return handleEvent(getKino(), event);
 }
 async function categories2() {
   return categories(getKino());

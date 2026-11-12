@@ -47,9 +47,9 @@ export async function screen(ctx) {
   return buildScreen(getKino(), (ctx && ctx.state) || {});
 }
 
-/** `screenEvent(event)`: a tab or country change patches the state; Kino draws the screen again. */
+/** `screenEvent(event)`: a tab/country change, the search button, Back, or a submitted query patches the state; Kino redraws. */
 export async function screenEvent(event) {
-  return handleEvent(event);
+  return handleEvent(getKino(), event);
 }
 
 /** `categories()`: genre tiles. */

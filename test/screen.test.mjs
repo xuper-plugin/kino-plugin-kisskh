@@ -113,6 +113,50 @@ test("hero details are fetched together and capped at five", async () => {
   assert.equal(peak, details, "all hero details in flight at once");
 });
 
+test("the browse header carries a search button that opens the search", async () => {
+  const { tree } = await draw({});
+  const btn = find(tree, (n) => n.type === "IconButton" && n.icon === "search")[0];
+  assert.ok(btn, "a search IconButton in the header");
+  assert.equal(btn.onPressed, "open_search");
+  assert.ok(btn.labelText && btn.labelTextEn, "the search button is labelled in both languages");
+});
+
+test("open_search shows an autofocused field and a prompt; a query fills a result grid; Back closes the search", async () => {
+  assert.deepEqual(await screenEvent({ name: "open_search" }), { state: { searching: true, query: "", results: [] } });
+
+  const empty = await draw({ searching: true });
+  assert.equal(empty.tree.onBack, "close_search");
+  assert.equal(empty.tree.appBar.bottom, undefined, "no tabs while searching");
+  const field = find(empty.tree, (n) => n.type === "TextField" && n.key === "q")[0];
+  assert.ok(field && field.autofocus === true && field.onSubmitted === "query");
+  assert.equal(find(empty.tree, (n) => n.type === "emptyState" && n.key === "prompt").length, 1);
+
+  const { kino, calls } = fakeKino({ fetch: async (url) => (url.includes("/Search?") ? { status: 200, body: fixture("search.json") } : { status: 200, body: fixture("list.json") }) });
+  globalThis.kino = kino;
+  const r = await screenEvent({ name: "query", value: "hidden" });
+  assert.ok(Array.isArray(r.state.results) && r.state.results.length > 0);
+  assert.equal(r.state.query, "hidden");
+  assert.ok(calls.some((c) => c.url.includes("/Search?")));
+
+  const withResults = await screen({ state: { searching: true, query: "hidden", results: r.state.results } });
+  const grid = find(withResults, (n) => n.type === "titleGrid")[0];
+  assert.ok(grid && grid.items.length === r.state.results.length);
+  for (const it of grid.items) assert.match(it.id, /^[A-Za-z0-9._~-]{1,128}$/);
+  for (const lang of ["es", "en"]) {
+    const chk = checkScreenTree(JSON.parse(JSON.stringify(withResults)), lang, undefined, { apiVersion: 25 });
+    assert.deepEqual(chk.dropped, [], chk.dropped.join("\n"));
+  }
+
+  assert.deepEqual(await screenEvent({ name: "close_search" }), { state: { searching: false, query: "", results: [] } });
+});
+
+test("a blank query clears the results without hitting the site", async () => {
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: fixture("search.json") }) });
+  globalThis.kino = kino;
+  assert.deepEqual(await screenEvent({ name: "query", value: "   " }), { state: { query: "", results: [] } });
+  assert.equal(calls.length, 0, "a blank query does not hit the site");
+});
+
 test("a failed rail drops only itself and is not cached", async () => {
   let broken = true;
   const { kino } = fakeKino({ fetch: route((u) => (broken && u.pathname.endsWith("/TopRating") ? { status: 503, body: "" } : null)) });
