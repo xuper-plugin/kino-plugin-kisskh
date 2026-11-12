@@ -18,7 +18,7 @@ test("a plain string searches the site and dresses the matches as tiles", async 
   const items = await search("hidden");
   assert.equal(params(calls[0].url).q, "hidden");
   assert.ok(items.length >= 3);
-  assert.deepEqual(items[0], { ref: "d:12552", title: "The Hidden Heir Ye Chen", poster: items[0].poster, kind: "series", episodesCount: 32 });
+  assert.deepEqual(items[0], { id: "12552", ref: "d:12552", title: "The Hidden Heir Ye Chen", poster: items[0].poster, kind: "series", episodesCount: 32 });
   assert.deepEqual(await search({ q: "hidden" }), items);
 });
 

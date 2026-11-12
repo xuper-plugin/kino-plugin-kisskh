@@ -30,6 +30,7 @@ export const titleId = (ref) => (/^d:(\d{1,9})$/.exec(String(ref || "")) || [])[
 /** A list item as Kino's tile. `kind` is a list-time guess (one episode: a movie); the detail's type settles it later. */
 export function dress(item) {
   return {
+    id: String(item.id), // the host's itemIdPattern (^[A-Za-z0-9._~-]{1,128}$) has no colon: the "d:" form lives in ref only
     ref: "d:" + item.id,
     title: item.title,
     poster: item.thumbnail,
@@ -59,10 +60,13 @@ export async function browse(kino, ref, cursor) {
   return items.length && page < MAX_PAGE && page * r.pageSize < r.totalCount ? { items, cursor: String(page + 1) } : { items };
 }
 
+/** A row's id: its list params joined by "." (the id pattern has no colon; the colon form stays in the row's ref). */
+const rowId = (q) => ["list", q.type, q.country || 0, q.status || 0, q.order || LATEST].join(".");
+
 async function row(titleKey, kino, q) {
   const r = await list({ ...q, page: 1 });
   const items = r.items.map(dress).slice(0, ROW_CAP);
-  return items.length ? { title: t(titleKey, kino), items, ref: listRef(q.type, q.country, q.status, q.order) } : null;
+  return items.length ? { id: rowId(q), title: t(titleKey, kino), items, ref: listRef(q.type, q.country, q.status, q.order) } : null;
 }
 
 const TYPE_ROWS = [
