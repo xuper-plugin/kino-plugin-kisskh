@@ -8,8 +8,6 @@ const WORDS = {
   es: {
     notFound: "No encontré este título en KissKH.",
     tabHome: "Inicio",
-    heroTitle: "KissKH",
-    heroText: "Doramas, series, películas y anime asiáticos con subtítulos",
     tabDramas: "Dramas",
     tabMovies: "Películas",
     tabAnime: "Anime",
@@ -68,8 +66,6 @@ const WORDS = {
   en: {
     notFound: "I could not find this title on KissKH.",
     tabHome: "Home",
-    heroTitle: "KissKH",
-    heroText: "Asian dramas, series, movies and anime with subtitles",
     tabDramas: "Dramas",
     tabMovies: "Movies",
     tabAnime: "Anime",

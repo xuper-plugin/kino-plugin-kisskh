@@ -8,7 +8,7 @@
 //   cur:<name>                                    a curated shelf (one page, no cursor): see CURATED
 //   m:<dramaId>                                   a movie's play ref (resolve reads it)
 
-import { list, search as siteSearch, lastUpdate, topRating, mostView, animate, mostSearch, upcoming } from "./api.js";
+import { list, drama, search as siteSearch, lastUpdate, topRating, mostView, animate, mostSearch, upcoming } from "./api.js";
 import { t } from "./i18n.js";
 
 const ROW_CAP = 24;
@@ -146,7 +146,34 @@ const TABS = [
   { id: "anime", labelKey: "tabAnime", type: 3 },
 ];
 
-const HERO_IMAGE = "https://kisskh.do/assets/icons/icon-512x512.png";
+/** Image hosts the manifest declares (the Images rule drops a hero image elsewhere). */
+const IMAGE_HOST = /^(media\.themoviedb\.org|image\.tmdb\.org|serveproxy\.com|fragrancecdn1\.site|[^.]+\.nflxso\.net|[^.]+\.wetvinfo\.com)$/;
+const WIDE = /^https:\/\/(media\.themoviedb\.org|image\.tmdb\.org)\//; // TMDB thumbnails are 16:9, right for a banner
+
+const hostOk = (u) => {
+  const m = /^https:\/\/([^/:?#]+)[/:?#]/i.exec(String(u || ""));
+  return !!m && IMAGE_HOST.test(m[1].toLowerCase());
+};
+
+const clip = (s, n = 300) => {
+  const x = String(s || "").replace(/\s+/g, " ").trim();
+  return x.length > n ? x.slice(0, n - 1).trimEnd() + "…" : x;
+};
+
+/** The featured title's banner, from the rows already fetched: the first title with a wide image on a declared host. Null when none. */
+async function heroOf(kino, rows) {
+  const items = rows.flatMap((r) => r.items);
+  const star = items.find((i) => i.title && WIDE.test(i.poster || "")) || items.find((i) => i.title && hostOk(i.poster));
+  if (!star) return null;
+  const hero = { title: star.title, image: star.poster };
+  try {
+    const text = clip((await drama(star.id)).description);
+    if (text) hero.text = text;
+  } catch (e) {
+    kino.log("[kisskh]", "hero detail", (e && e.code) || "error");
+  }
+  return hero;
+}
 
 const foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -155,8 +182,11 @@ export async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
   const rows = chosen.type ? await rowsOf(kino, TAB_ROWS[chosen.type]) : await homeRows(kino);
   const out = { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
-  // Banner on Inicio only. The square icon is the best raster logo the site serves (its SVG wordmark is not a safe image type).
-  if (!chosen.type) out.hero = { title: t("heroTitle", kino), text: t("heroText", kino), image: HERO_IMAGE };
+  // Banner on Inicio only: a featured title (best effort; no banner rather than a broken one).
+  if (!chosen.type) {
+    const hero = await heroOf(kino, rows).catch(() => null);
+    if (hero) out.hero = hero;
+  }
   return out;
 }
 

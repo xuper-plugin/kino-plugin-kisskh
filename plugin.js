@@ -3,8 +3,6 @@ var WORDS = {
   es: {
     notFound: "No encontr\xE9 este t\xEDtulo en KissKH.",
     tabHome: "Inicio",
-    heroTitle: "KissKH",
-    heroText: "Doramas, series, pel\xEDculas y anime asi\xE1ticos con subt\xEDtulos",
     tabDramas: "Dramas",
     tabMovies: "Pel\xEDculas",
     tabAnime: "Anime",
@@ -63,8 +61,6 @@ var WORDS = {
   en: {
     notFound: "I could not find this title on KissKH.",
     tabHome: "Home",
-    heroTitle: "KissKH",
-    heroText: "Asian dramas, series, movies and anime with subtitles",
     tabDramas: "Dramas",
     tabMovies: "Movies",
     tabAnime: "Anime",
@@ -302,13 +298,38 @@ var TABS = [
   { id: "peliculas", labelKey: "tabMovies", type: 2 },
   { id: "anime", labelKey: "tabAnime", type: 3 }
 ];
-var HERO_IMAGE = "https://kisskh.do/assets/icons/icon-512x512.png";
+var IMAGE_HOST = /^(media\.themoviedb\.org|image\.tmdb\.org|serveproxy\.com|fragrancecdn1\.site|[^.]+\.nflxso\.net|[^.]+\.wetvinfo\.com)$/;
+var WIDE = /^https:\/\/(media\.themoviedb\.org|image\.tmdb\.org)\//;
+var hostOk = (u) => {
+  const m = /^https:\/\/([^/:?#]+)[/:?#]/i.exec(String(u || ""));
+  return !!m && IMAGE_HOST.test(m[1].toLowerCase());
+};
+var clip = (s, n = 300) => {
+  const x = String(s || "").replace(/\s+/g, " ").trim();
+  return x.length > n ? x.slice(0, n - 1).trimEnd() + "\u2026" : x;
+};
+async function heroOf(kino, rows) {
+  const items = rows.flatMap((r) => r.items);
+  const star = items.find((i) => i.title && WIDE.test(i.poster || "")) || items.find((i) => i.title && hostOk(i.poster));
+  if (!star) return null;
+  const hero = { title: star.title, image: star.poster };
+  try {
+    const text = clip((await drama(star.id)).description);
+    if (text) hero.text = text;
+  } catch (e) {
+    kino.log("[kisskh]", "hero detail", e && e.code || "error");
+  }
+  return hero;
+}
 var foldTab = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
   const rows = chosen.type ? await rowsOf(kino, TAB_ROWS[chosen.type]) : await homeRows(kino);
   const out = { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
-  if (!chosen.type) out.hero = { title: t("heroTitle", kino), text: t("heroText", kino), image: HERO_IMAGE };
+  if (!chosen.type) {
+    const hero = await heroOf(kino, rows).catch(() => null);
+    if (hero) out.hero = hero;
+  }
   return out;
 }
 var SEARCH_CAP = 100;

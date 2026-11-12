@@ -58,6 +58,30 @@ test("a failed curated endpoint drops only its row", async () => {
   assert.ok(dramas.rows.length >= 4 && !dramas.rows.some((r) => r.id === "toprating"));
 });
 
+test("Inicio has a featured-title hero (title, image, overview); other tabs and an empty catalogue have none", async () => {
+  const { kino } = fakeKino({
+    fetch: async (url) => (new URL(url).pathname.includes("/Drama/") ? { status: 200, body: fixture("drama.json") } : route()(url)),
+  });
+  globalThis.kino = kino;
+  const s = await section(kino, {}, "inicio");
+  assert.ok(s.hero && s.hero.title && /^https:\/\//.test(s.hero.image));
+  assert.ok(!s.hero.text || s.hero.text.length <= 300);
+  assert.equal((await section(kino, {}, "dramas")).hero, undefined);
+
+  const bare = fakeKino({ fetch: async () => ({ status: 200, body: "[]" }) });
+  globalThis.kino = bare.kino;
+  assert.equal((await section(bare.kino, {}, "inicio")).hero, undefined);
+});
+
+test("the hero keeps title and image when the detail fetch fails", async () => {
+  const { kino } = fakeKino({
+    fetch: async (url) => (new URL(url).pathname.includes("/Drama/") ? { status: 503, body: "" } : route()(url)),
+  });
+  globalThis.kino = kino;
+  const s = await section(kino, {}, "inicio");
+  assert.ok(s.hero && s.hero.title && s.hero.image && !s.hero.text);
+});
+
 test("a curated shelf opens as a one-page Ver más", async () => {
   const { kino } = fakeKino({ fetch: route() });
   globalThis.kino = kino;
