@@ -17,9 +17,12 @@ const unavailable = (what) => {
   return kino.error("unavailable", `${what}: not implemented yet`, { userMessage: t("unavailable", kino) });
 };
 
-/** `search(query)`: matching titles. */
-export async function search() {
-  return [];
+/** `search(query)`: the site's matches; inside a "Ver más" page (scopedSearch, `query.within`), that page's matching titles. */
+export async function search(query) {
+  const kino = getKino();
+  const q = typeof query === "string" ? query : (query && query.q) || "";
+  if (query && typeof query === "object" && query.within) return catalog.searchWithin(kino, query.within, q, query.cursor);
+  return catalog.search(kino, q, query && query.type);
 }
 
 /** `home()`: the rows shown on Kino's Home. */

@@ -7,7 +7,7 @@
 //   e:<dramaId>:<episodeId>:<number>              a series episode (detail.js makes it, resolve reads it)
 //   m:<dramaId>                                   a movie's play ref (resolve reads it)
 
-import { list } from "./api.js";
+import { list, search as siteSearch } from "./api.js";
 import { t } from "./i18n.js";
 
 const ROW_CAP = 24;
@@ -102,6 +102,41 @@ export async function section(kino, settings, tab) {
     ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST })].filter(Boolean)
     : await homeRows(kino);
   return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
+}
+
+const SEARCH_CAP = 100;
+const PAGES_PER_CALL = 3;
+
+/** `search(query)`: the site's matches for `q`; `type` ("movie"/"series") is a hint, so its kind goes first and every match stays. */
+export async function search(kino, q, type) {
+  if (!String(q || "").trim()) return [];
+  const items = (await siteSearch(String(q).trim())).map(dress);
+  const lean = type === "movie" || type === "series" ? type : null;
+  const sorted = lean ? [...items.filter((i) => i.kind === lean), ...items.filter((i) => i.kind !== lean)] : items;
+  return sorted.slice(0, SEARCH_CAP);
+}
+
+/**
+ * `scopedSearch`: the titles of the "Ver más" page `within` (a list:/genre: ref) that contain `q`, reading a few pages per call;
+ * `next` is the cursor of the following ones. Null for a ref that is not a page of ours (Kino then filters the page's own titles).
+ */
+export async function searchWithin(kino, within, q, cursor) {
+  const base = parseRef(within);
+  if (!base) return null;
+  const needle = foldTab(q).trim();
+  if (!needle) return { items: [] };
+  const n = Number.parseInt(cursor, 10);
+  const start = n >= 1 && n <= MAX_PAGE ? n : 1;
+  const pages = [];
+  for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
+  const got = await Promise.all(pages.map((page) => list({ ...base, page }).catch(() => null)));
+  if (got.every((r) => r === null)) return null;
+  const read = got.filter(Boolean);
+  const hits = read.flatMap((r) => r.items).filter((i) => foldTab(i.title).includes(needle));
+  const items = [...new Map(hits.map((i) => [i.id, dress(i)])).values()]; // a title that slid across a page boundary shows once
+  const last = read[read.length - 1];
+  const more = last.items.length > 0 && start + PAGES_PER_CALL <= MAX_PAGE && (start + PAGES_PER_CALL - 1) * last.pageSize < last.totalCount;
+  return more ? { items, next: String(start + PAGES_PER_CALL) } : { items };
 }
 
 /** `categories()`: one tile per type, each opening its "Ver más". */

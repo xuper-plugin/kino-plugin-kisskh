@@ -106,3 +106,11 @@ test("a ref that is not playable is not_found", async () => {
   await assert.rejects(() => resolve(kino, "d:8316"), (e) => e.code === "not_found");
   await assert.rejects(() => resolve(kino, "e:8316:x:1"), (e) => e.code === "not_found");
 });
+
+test("downloads: a signed stream is a plain URL, a browser-lane-only title fails cleanly when Kino has no capture", async () => {
+  const a = site();
+  const s = await resolve(a.kino, "e:8316:174941:1");
+  assert.equal(viaBrowser(s), false); // direct URL + headers: downloadable as it is
+  const b = site({ episode: "", browser: { capture: async () => ({ media: [], subtitles: [], finalUrl: "" }) } });
+  await assert.rejects(() => resolve(b.kino, "e:8316:174941:1"), (e) => e.code === "unavailable"); // no hang, no stream
+});

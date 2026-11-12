@@ -123,6 +123,10 @@ async function list({ page = 1, type = 0, country = 0, status = 0, order = 1, pa
   const j = await getJson(`${API}/List?page=${page}&type=${type}&sub=0&country=${country}&status=${status}&order=${order}&pageSize=${pageSize}`);
   return { page: j.page, pageSize: j.pageSize, totalCount: j.totalCount, items: (j.data || []).map(item) };
 }
+async function search(q) {
+  const j = await getJson(`${API}/Search?q=${encodeURIComponent(q)}&type=0`);
+  return (Array.isArray(j) ? j : []).map(item);
+}
 async function drama(id) {
   const j = await getJson(`${API}/Drama/${id}?isq=false`);
   return {
@@ -209,6 +213,33 @@ async function section(kino, settings, tab) {
   const chosen = TABS.find((x) => x.id === foldTab(tab)) || TABS[0];
   const rows = chosen.type ? [await row("rowLatest", kino, { type: chosen.type, order: LATEST })].filter(Boolean) : await homeRows(kino);
   return { tabs: TABS.map((x) => ({ id: x.id, label: t(x.labelKey, kino) })), tab: chosen.id, rows };
+}
+var SEARCH_CAP = 100;
+var PAGES_PER_CALL = 3;
+async function search2(kino, q, type) {
+  if (!String(q || "").trim()) return [];
+  const items = (await search(String(q).trim())).map(dress);
+  const lean = type === "movie" || type === "series" ? type : null;
+  const sorted = lean ? [...items.filter((i) => i.kind === lean), ...items.filter((i) => i.kind !== lean)] : items;
+  return sorted.slice(0, SEARCH_CAP);
+}
+async function searchWithin(kino, within, q, cursor) {
+  const base = parseRef(within);
+  if (!base) return null;
+  const needle = foldTab(q).trim();
+  if (!needle) return { items: [] };
+  const n = Number.parseInt(cursor, 10);
+  const start = n >= 1 && n <= MAX_PAGE ? n : 1;
+  const pages = [];
+  for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
+  const got = await Promise.all(pages.map((page) => list({ ...base, page }).catch(() => null)));
+  if (got.every((r) => r === null)) return null;
+  const read2 = got.filter(Boolean);
+  const hits = read2.flatMap((r) => r.items).filter((i) => foldTab(i.title).includes(needle));
+  const items = [...new Map(hits.map((i) => [i.id, dress(i)])).values()];
+  const last = read2[read2.length - 1];
+  const more = last.items.length > 0 && start + PAGES_PER_CALL <= MAX_PAGE && (start + PAGES_PER_CALL - 1) * last.pageSize < last.totalCount;
+  return more ? { items, next: String(start + PAGES_PER_CALL) } : { items };
 }
 function categories(kino) {
   return Object.entries(GENRES).map(([key2, g]) => ({ id: key2, title: t(g.titleKey, kino), ref: "genre:" + key2 }));
@@ -1687,8 +1718,11 @@ async function playerEvent() {
 
 // src/plugin.js
 var getKino = () => globalThis.kino;
-async function search() {
-  return [];
+async function search3(query) {
+  const kino = getKino();
+  const q = typeof query === "string" ? query : query && query.q || "";
+  if (query && typeof query === "object" && query.within) return searchWithin(kino, query.within, q, query.cursor);
+  return search2(kino, q, query && query.type);
 }
 async function home2() {
   const kino = getKino();
@@ -1769,7 +1803,7 @@ export {
   panelAction,
   playerEvent,
   resolve3 as resolve,
-  search,
+  search3 as search,
   section2 as section,
   settingsStatus,
   validateSettings2 as validateSettings
