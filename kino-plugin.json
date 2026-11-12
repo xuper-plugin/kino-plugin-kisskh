@@ -1,0 +1,101 @@
+{
+  "id": "kisskh",
+  "name": "KissKH",
+  "version": "0.1.0",
+  "apiVersion": 25,
+  "panel": {
+    "label": "KissKH",
+    "labelEn": "KissKH",
+    "iconFile": "panel-icon.png"
+  },
+  "entry": "plugin.js",
+  "icon": "icon.png",
+  "description": "Doramas, series y películas asiáticas, y anime, con subtítulos en varios idiomas",
+  "author": "xuper-plugin",
+  "homepage": "https://github.com/xuper-plugin/kino-plugin-kisskh",
+  "hosts": [
+    "kisskh.do",
+    "load.kisskh.co",
+    "media.themoviedb.org",
+    "image.tmdb.org",
+    "serveproxy.com",
+    "fragrancecdn1.site",
+    "*.nflxso.net",
+    "*.wetvinfo.com"
+  ],
+  "fetchHosts": "any",
+  "capabilities": [
+    "search",
+    "home",
+    "browse",
+    "episodes",
+    "resolve",
+    "scopedSearch",
+    "download"
+  ],
+  "streamHosts": "any",
+  "categories": [
+    "movies",
+    "series"
+  ],
+  "color": "#E91E63",
+  "section": {
+    "label": "KissKH",
+    "labelEn": "KissKH"
+  },
+  "theme": {
+    "accent": "#E0245E",
+    "onAccent": "#FFFFFF",
+    "background": "#0D0709",
+    "surface": "#1B1115",
+    "highlight": "#F8C4D4"
+  },
+  "browser": true,
+  "telemetry": true,
+  "settings": [
+    {
+      "key": "preferredSubLang",
+      "type": "select",
+      "label": "Idioma de subtítulos",
+      "labelEn": "Subtitle language",
+      "default": "en",
+      "options": [
+        { "value": "en", "label": "Inglés", "labelEn": "English" },
+        { "value": "es", "label": "Español", "labelEn": "Spanish" }
+      ],
+      "hint": "El subtítulo que se activa primero cuando hay varios.",
+      "hintEn": "The subtitle switched on first when there are several."
+    },
+    {
+      "key": "maxQuality",
+      "type": "select",
+      "label": "Calidad máxima",
+      "labelEn": "Maximum quality",
+      "default": "auto",
+      "options": [
+        { "value": "auto", "label": "Automática", "labelEn": "Automatic" },
+        { "value": "1080p", "label": "Hasta 1080p", "labelEn": "Up to 1080p" },
+        { "value": "720p", "label": "Hasta 720p", "labelEn": "Up to 720p" },
+        { "value": "480p", "label": "Hasta 480p (ahorra datos)", "labelEn": "Up to 480p (saves data)" }
+      ]
+    },
+    {
+      "key": "homeRows",
+      "type": "toggle",
+      "label": "Filas en Inicio",
+      "labelEn": "Rows on Home",
+      "default": true,
+      "hint": "Muestra las novedades de KissKH en el Inicio de Kino.",
+      "hintEn": "Shows KissKH's new releases on Kino's Home."
+    },
+    {
+      "key": "forceBrowserLane",
+      "type": "toggle",
+      "label": "Reproducir siempre con el navegador",
+      "labelEn": "Always play through the browser",
+      "default": false,
+      "hint": "Actívalo solo si los capítulos no abren de la forma normal.",
+      "hintEn": "Turn it on only if episodes do not open the normal way."
+    }
+  ]
+}
