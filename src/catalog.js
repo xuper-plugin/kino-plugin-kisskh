@@ -11,6 +11,7 @@
 import { list, drama, search as siteSearch, lastUpdate, topRating, mostView, animate, mostSearch, upcoming } from "./api.js";
 import { t } from "./i18n.js";
 import { cached } from "./screenCache.js";
+import { titleLogo } from "./tmdb.js";
 
 const ROW_CAP = 24;
 const MAX_PAGE = 2000;
@@ -206,14 +207,16 @@ export async function tabRows(kino, tabId, slug) {
   return chosen.type ? rowsOf(kino, TAB_ROWS[chosen.type]) : homeRows(kino);
 }
 
-/** The featured titles for a carousel, from rows already fetched: up to [n] distinct titles with a picture on a declared host (wide TMDB ones first), each with its overview when the site answers. */
+/** The featured titles for a carousel, from rows already fetched: up to [n] distinct titles with a picture on a declared host (wide TMDB ones first), each with its overview when the site answers and its TMDB logo when it has one. */
 export async function heroPicks(kino, rows, n = 5) {
   const items = [...new Map(rows.flatMap((r) => r.items).filter((i) => i.title && hostOk(i.poster)).map((i) => [i.id, i])).values()];
   const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n); // one detail request per card, all at once
   const cards = await Promise.all(pool.map(async (i) => {
     try {
-      const text = clip((await cached(kino, "drama:" + i.id, () => drama(i.id))).description);
-      return { item: i, text };
+      const d = await cached(kino, "drama:" + i.id, () => drama(i.id));
+      const year = /^(\d{4})/.exec(d.releaseDate || "");
+      const logo = await titleLogo(kino, { title: d.title || i.title, year: year ? +year[1] : null, kind: d.type === "Movie" ? "movie" : "series" });
+      return { item: logo ? { ...i, logo } : i, text: clip(d.description) };
     } catch (e) {
       kino.log("[kisskh]", "hero detail", (e && e.code) || "error");
       return { item: i, text: "" };

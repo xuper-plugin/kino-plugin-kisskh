@@ -248,6 +248,134 @@ function cached(kino, key2, load, ttl = TTL_MS) {
   return pending;
 }
 
+// src/util/slug.js
+function slugify(title) {
+  return String(title || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// src/tmdb.js
+var IMG = "https://image.tmdb.org/t/p/";
+var LOGO_SIZE = "w500";
+var HIT_TTL_MS = 30 * 24 * 3600 * 1e3;
+var MISS_TTL_MS = 24 * 3600 * 1e3;
+var CALL_MS = 3e3;
+var LOGO_MS = 5e3;
+var yearOf = (d) => typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null;
+var kindOf = (kind) => kind === "movie" ? "movie" : "tv";
+async function bounded(kino, run, ms) {
+  await null;
+  let settled = false;
+  const work = Promise.resolve().then(run).then((v) => {
+    settled = true;
+    return { v };
+  }, (e) => {
+    settled = true;
+    return { e };
+  });
+  const end = Date.now() + ms;
+  const timer = (async () => {
+    while (!settled && end > Date.now()) await kino.sleep(Math.min(250, end - Date.now()));
+    return null;
+  })();
+  const r = await Promise.race([work, timer]);
+  if (!r) throw new Error("tmdb: over " + ms + " ms");
+  if (r.e) throw r.e;
+  return r.v;
+}
+var ask = (kino, path, params) => bounded(kino, () => kino.tmdb(path, params), CALL_MS);
+var has = (kino) => !!kino && typeof kino.tmdb === "function";
+function recall(kino, key2) {
+  try {
+    return kino.storage.get(key2);
+  } catch (_) {
+    return null;
+  }
+}
+function remember(kino, key2, value, ttlMs) {
+  try {
+    kino.storage.set(key2, String(value), { ttlMs });
+  } catch (_) {
+  }
+}
+function pick(results, names, year) {
+  const wanted = new Set(names.map(slugify).filter(Boolean));
+  const near = (r) => {
+    const y = yearOf(r.release_date || r.first_air_date);
+    return !year || !y || Math.abs(y - year) <= 1;
+  };
+  const namesOf = (r) => [r.title, r.name, r.original_title, r.original_name].map(slugify).filter(Boolean);
+  const list2 = (results || []).filter((r) => r && Number.isInteger(r.id) && near(r));
+  const exact = [...new Set(list2.filter((r) => namesOf(r).some((n) => wanted.has(n))).map((r) => r.id))];
+  if (exact.length > 1 && !year) return null;
+  return exact.length ? exact[0] : null;
+}
+var nameVariants = (title) => {
+  const raw = String(title || "").trim();
+  return [...new Set([raw, raw.replace(/\s*\(\d{4}\)\s*$/, "").trim()].filter(Boolean))];
+};
+async function matchTmdb(kino, { title, year, kind }) {
+  if (!has(kino)) return null;
+  const names = nameVariants(title);
+  if (!names.length) return null;
+  const k = kindOf(kind);
+  const query = names[names.length - 1];
+  const key2 = `tmdb:${k}:${slugify(query)}:${year || ""}`;
+  const cached2 = recall(kino, key2);
+  if (cached2 === "none") return null;
+  if (cached2 && /^\d+$/.test(cached2)) return Number(cached2);
+  try {
+    for (const language of ["es-MX", "en-US"]) {
+      const r = await ask(kino, `/search/${k}`, { query, language, include_adult: false });
+      const id = pick(r && r.results, names, year);
+      if (id) {
+        remember(kino, key2, id, HIT_TTL_MS);
+        return id;
+      }
+    }
+    remember(kino, key2, "none", MISS_TTL_MS);
+    return null;
+  } catch (e) {
+    kino.log("[kisskh]", "tmdb match", e && e.code || "error");
+    return null;
+  }
+}
+function bestLogo(logos) {
+  const list2 = (logos || []).filter((l) => l && typeof l.file_path === "string" && l.file_path.startsWith("/"));
+  for (const lang of ["es", "en", null]) {
+    const hit = list2.find((l) => (l.iso_639_1 || null) === lang);
+    if (hit) return IMG + LOGO_SIZE + hit.file_path;
+  }
+  return null;
+}
+async function logoUrl(kino, id, kind) {
+  if (!has(kino) || !Number.isInteger(id)) return null;
+  const k = kindOf(kind);
+  const key2 = `tmdbLogo:${k}:${id}`;
+  const cached2 = recall(kino, key2);
+  if (cached2 === "none") return null;
+  if (cached2 && cached2.startsWith(IMG)) return cached2;
+  try {
+    const d = await ask(kino, `/${k}/${id}`, { append_to_response: "images", include_image_language: "es,en,null" });
+    const url = bestLogo(d && d.images && d.images.logos);
+    remember(kino, key2, url || "none", url ? HIT_TTL_MS : MISS_TTL_MS);
+    return url;
+  } catch (e) {
+    kino.log("[kisskh]", "tmdb logo", e && e.code || "error");
+    return null;
+  }
+}
+async function titleLogo(kino, query) {
+  if (!has(kino)) return null;
+  try {
+    return await bounded(kino, async () => {
+      const id = await matchTmdb(kino, query);
+      return id ? logoUrl(kino, id, query.kind) : null;
+    }, LOGO_MS);
+  } catch (_) {
+    return null;
+  }
+}
+
 // src/catalog.js
 var ROW_CAP = 24;
 var MAX_PAGE = 2e3;
@@ -405,8 +533,10 @@ async function heroPicks(kino, rows, n = 5) {
   const pool = [...items.filter((i) => WIDE.test(i.poster)), ...items.filter((i) => !WIDE.test(i.poster))].slice(0, n);
   const cards = await Promise.all(pool.map(async (i) => {
     try {
-      const text = clip((await cached(kino, "drama:" + i.id, () => drama(i.id))).description);
-      return { item: i, text };
+      const d = await cached(kino, "drama:" + i.id, () => drama(i.id));
+      const year = /^(\d{4})/.exec(d.releaseDate || "");
+      const logo = await titleLogo(kino, { title: d.title || i.title, year: year ? +year[1] : null, kind: d.type === "Movie" ? "movie" : "series" });
+      return { item: logo ? { ...i, logo } : i, text: clip(d.description) };
     } catch (e) {
       kino.log("[kisskh]", "hero detail", e && e.code || "error");
       return { item: i, text: "" };
@@ -476,7 +606,9 @@ async function details(kino, ref) {
     country: d.country,
     status: d.status
   };
-  return Object.fromEntries(Object.entries(info).filter(([, v]) => v !== "" && v !== null));
+  const out = Object.fromEntries(Object.entries(info).filter(([, v]) => v !== "" && v !== null));
+  const tmdb = await matchTmdb(kino, { title: d.title, year: info.year, kind: d.type === "Movie" ? "movie" : "series" });
+  return tmdb ? { ...out, ids: { tmdb } } : out;
 }
 async function episodes(kino, ref) {
   const id = titleId(ref);
@@ -1923,6 +2055,7 @@ function heroPage({ item: item2, text }, i) {
     title: item2.title,
     titleEn: item2.title,
     image: item2.poster,
+    ...item2.logo ? { logo: item2.logo } : {},
     ...text ? { text, textEn: text } : {},
     h: { compact: 240, expanded: 320 },
     buttons: [{ type: "ElevatedButton", key: "hero-go-" + i, icon: "play", ...both2("watch", "labelText"), onPressed: { go: { title: target } } }]
@@ -2170,9 +2303,9 @@ async function settingsStatus() {
   return { health: healthLine(kino) };
 }
 async function probe(kino) {
-  const ok = async (ask) => {
+  const ok = async (ask2) => {
     try {
-      await ask();
+      await ask2();
       return true;
     } catch (_) {
       return false;

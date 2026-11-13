@@ -78,6 +78,7 @@ function heroPage({ item, text }, i) {
   const target = { ref: item.ref, kind: item.kind, id: item.id, title: item.title };
   return {
     type: "heroCard", key: "hero-" + item.id, title: item.title, titleEn: item.title, image: item.poster,
+    ...(item.logo ? { logo: item.logo } : {}),
     ...(text ? { text, textEn: text } : {}), h: { compact: 240, expanded: 320 },
     buttons: [{ type: "ElevatedButton", key: "hero-go-" + i, icon: "play", ...both("watch", "labelText"), onPressed: { go: { title: target } } }],
   };
