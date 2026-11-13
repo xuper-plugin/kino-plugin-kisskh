@@ -1850,7 +1850,30 @@ var PAGE_PADDING = { compact: 12, expanded: 24 };
 var HERO_COUNT = 5;
 var SEARCH_COLUMNS = { compact: 3, expanded: 6 };
 var SEARCH_MAX_CHARS = 100;
+var UI_LOAD = [{ show: "loading" }, { hide: "content" }];
+var UI_DONE = [{ hide: "loading" }, { show: "content" }];
+var TAB_CHANGE = { ui: UI_LOAD, event: "tab" };
+var COUNTRY_CHANGE = { ui: UI_LOAD, event: "country" };
 var plain = (o) => o && typeof o === "object" && !Array.isArray(o) ? o : {};
+var railSkeleton = (n) => ({
+  type: "Column",
+  key: "sk-row-" + n,
+  gap: 8,
+  children: [
+    { type: "Skeleton", key: "sk-title-" + n, shape: "line", width: 120 },
+    { type: "Row", key: "sk-cards-" + n, gap: 12, children: [0, 1, 2].map((i) => ({ type: "Skeleton", key: `sk-card-${n}-${i}`, shape: "card", flex: 1 })) }
+  ]
+});
+var skeleton = () => ({
+  type: "Column",
+  key: "loading",
+  hidden: true,
+  gap: 16,
+  children: [
+    { type: "Skeleton", key: "sk-hero", shape: "block", height: { compact: 200, expanded: 320 } },
+    { type: "Column", key: "sk-below", padding: PAGE_PADDING, gap: 16, children: [railSkeleton(0), railSkeleton(1)] }
+  ]
+});
 var both2 = (key2, prop = "text") => {
   const es = t(key2, { lang: "es" });
   const en = t(key2, { lang: "en" });
@@ -1879,7 +1902,7 @@ var browseBar = (tab) => ({
     key: "tabs",
     divider: false,
     value: tab,
-    onChanged: "tab",
+    onChanged: TAB_CHANGE,
     tabs: TABS.map((x) => ({ value: x.id, ...both2(x.labelKey, "label") }))
   }
 });
@@ -1926,37 +1949,36 @@ async function browseView(kino, state) {
     failed = true;
   }
   const picks = rows.length ? await heroPicks(kino, rows, HERO_COUNT).catch(() => []) : [];
-  const children = [];
-  if (picks.length) {
-    children.push({
-      type: "PageView",
-      key: "heroes",
-      autoPlayMs: 6e3,
-      viewportFraction: { compact: 0.94, expanded: 0.7 },
-      padEnds: true,
-      children: picks.map(heroPage)
-    });
-  }
-  children.push({
+  const hero = picks.length ? { type: "PageView", key: "heroes", autoPlayMs: 6e3, padEnds: false, children: picks.map(heroPage) } : null;
+  const below = [{
     type: "Chips",
     key: "country",
     value: country,
-    onChanged: "country",
+    onChanged: COUNTRY_CHANGE,
     options: [
       { value: "all", ...both2("allCountries", "label") },
       ...COUNTRIES.filter((c) => c.slug !== "west").map((c) => ({ value: c.slug, ...both2(c.titleKey, "label") }))
     ]
-  });
-  if (rows.length) children.push(...rows.map(rail));
+  }];
+  if (rows.length) below.push(...rows.map(rail));
   else {
-    children.push(failed ? { type: "errorState", key: "failed", icon: "refresh", ...both2("screenFailTitle", "title"), ...both2("screenFailText") } : { type: "emptyState", key: "nothing", icon: "movie", ...both2("screenFailTitle", "title") });
+    below.push(failed ? { type: "errorState", key: "failed", icon: "refresh", ...both2("screenFailTitle", "title"), ...both2("screenFailText") } : { type: "emptyState", key: "nothing", icon: "movie", ...both2("screenFailTitle", "title") });
   }
+  const content = {
+    type: "Column",
+    key: "content",
+    gap: 16,
+    children: [
+      ...hero ? [hero] : [],
+      { type: "Column", key: "below", padding: PAGE_PADDING, gap: 16, children: below }
+    ]
+  };
   return {
     type: "Scaffold",
     key: "app",
     appBar: browseBar(tab),
     body: { type: "SingleChildScrollView", key: "page-" + tab, children: [
-      { type: "Column", key: "body", gap: 16, padding: PAGE_PADDING, children }
+      { type: "Column", key: "body", gap: 16, children: [skeleton(), content] }
     ] }
   };
 }
@@ -1993,8 +2015,8 @@ async function buildScreen(kino, state) {
 }
 async function handleEvent(kino, event) {
   const { name, value } = plain(event);
-  if (name === "tab" && tabIds.includes(value)) return { state: { tab: value } };
-  if (name === "country") return { state: { country: countrySlugs.includes(value) ? value : "all" } };
+  if (name === "tab" && tabIds.includes(value)) return { state: { tab: value }, ui: UI_DONE };
+  if (name === "country") return { state: { country: countrySlugs.includes(value) ? value : "all" }, ui: UI_DONE };
   if (name === "open_search") return { state: { searching: true, query: "", results: [] } };
   if (name === "close_search") return { state: { searching: false, query: "", results: [] } };
   if (name === "query") {

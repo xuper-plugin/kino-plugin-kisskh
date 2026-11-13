@@ -13,7 +13,30 @@ const HERO_COUNT = 5;
 const SEARCH_COLUMNS = { compact: 3, expanded: 6 };
 const SEARCH_MAX_CHARS = 100;
 
+// A tab or country change shows a skeleton at once (the fetch takes a moment) and hides the old content; the event's answer
+// flips them back when the fresh rails are ready. Kino keeps these ui ops in state.ui, so the answer must reset them.
+const UI_LOAD = [{ show: "loading" }, { hide: "content" }];
+const UI_DONE = [{ hide: "loading" }, { show: "content" }];
+const TAB_CHANGE = { ui: UI_LOAD, event: "tab" };
+const COUNTRY_CHANGE = { ui: UI_LOAD, event: "country" };
+
 const plain = (o) => (o && typeof o === "object" && !Array.isArray(o) ? o : {});
+
+/** One rail's placeholder: a short title line over a row of flex-sized cards (widths always on Kino's size scale). */
+const railSkeleton = (n) => ({
+  type: "Column", key: "sk-row-" + n, gap: 8, children: [
+    { type: "Skeleton", key: "sk-title-" + n, shape: "line", width: 120 },
+    { type: "Row", key: "sk-cards-" + n, gap: 12, children: [0, 1, 2].map((i) => ({ type: "Skeleton", key: `sk-card-${n}-${i}`, shape: "card", flex: 1 })) },
+  ],
+});
+
+/** A hidden placeholder of the page (an edge-to-edge hero block over two padded rows) revealed while a tab or country reloads. */
+const skeleton = () => ({
+  type: "Column", key: "loading", hidden: true, gap: 16, children: [
+    { type: "Skeleton", key: "sk-hero", shape: "block", height: { compact: 200, expanded: 320 } },
+    { type: "Column", key: "sk-below", padding: PAGE_PADDING, gap: 16, children: [railSkeleton(0), railSkeleton(1)] },
+  ],
+});
 
 /** Both languages of a catalogue text: `{ text, textEn }` (or [prop]), from the i18n table. */
 const both = (key, prop = "text") => {
@@ -37,7 +60,7 @@ const browseBar = (tab) => ({
   leading: { type: "IconButton", key: "barClose", icon: "close", ...both("close", "labelText"), onPressed: { close: true } },
   actions: [{ type: "IconButton", key: "openSearch", icon: "search", ...both("search", "labelText"), onPressed: "open_search" }],
   bottom: {
-    type: "TabBar", key: "tabs", divider: false, value: tab, onChanged: "tab",
+    type: "TabBar", key: "tabs", divider: false, value: tab, onChanged: TAB_CHANGE,
     tabs: TABS.map((x) => ({ value: x.id, ...both(x.labelKey, "label") })),
   },
 });
@@ -80,31 +103,37 @@ async function browseView(kino, state) {
   }
   const picks = rows.length ? await heroPicks(kino, rows, HERO_COUNT).catch(() => []) : [];
 
-  const children = [];
-  if (picks.length) {
-    children.push({
-      type: "PageView", key: "heroes", autoPlayMs: 6000, viewportFraction: { compact: 0.94, expanded: 0.7 }, padEnds: true,
-      children: picks.map(heroPage),
-    });
-  }
-  children.push({
-    type: "Chips", key: "country", value: country, onChanged: "country",
+  // The hero is full-bleed (no viewportFraction peek, no end pad) and sits outside the body padding, so it reaches both edges.
+  const hero = picks.length
+    ? { type: "PageView", key: "heroes", autoPlayMs: 6000, padEnds: false, children: picks.map(heroPage) }
+    : null;
+
+  // Everything under the hero keeps a side margin.
+  const below = [{
+    type: "Chips", key: "country", value: country, onChanged: COUNTRY_CHANGE,
     options: [
       { value: "all", ...both("allCountries", "label") },
       ...COUNTRIES.filter((c) => c.slug !== "west").map((c) => ({ value: c.slug, ...both(c.titleKey, "label") })),
     ],
-  });
-  if (rows.length) children.push(...rows.map(rail));
+  }];
+  if (rows.length) below.push(...rows.map(rail));
   else {
-    children.push(failed
+    below.push(failed
       ? { type: "errorState", key: "failed", icon: "refresh", ...both("screenFailTitle", "title"), ...both("screenFailText") }
       : { type: "emptyState", key: "nothing", icon: "movie", ...both("screenFailTitle", "title") });
   }
 
+  const content = {
+    type: "Column", key: "content", gap: 16, children: [
+      ...(hero ? [hero] : []),
+      { type: "Column", key: "below", padding: PAGE_PADDING, gap: 16, children: below },
+    ],
+  };
+
   return {
     type: "Scaffold", key: "app", appBar: browseBar(tab),
     body: { type: "SingleChildScrollView", key: "page-" + tab, children: [
-      { type: "Column", key: "body", gap: 16, padding: PAGE_PADDING, children },
+      { type: "Column", key: "body", gap: 16, children: [skeleton(), content] },
     ] },
   };
 }
@@ -143,8 +172,9 @@ export async function buildScreen(kino, state) {
  */
 export async function handleEvent(kino, event) {
   const { name, value } = plain(event);
-  if (name === "tab" && tabIds.includes(value)) return { state: { tab: value } };
-  if (name === "country") return { state: { country: countrySlugs.includes(value) ? value : "all" } };
+  // tab/country: the skeleton the tap showed is flipped off and the fresh content on (UI_LOAD did the opposite on the tap).
+  if (name === "tab" && tabIds.includes(value)) return { state: { tab: value }, ui: UI_DONE };
+  if (name === "country") return { state: { country: countrySlugs.includes(value) ? value : "all" }, ui: UI_DONE };
   if (name === "open_search") return { state: { searching: true, query: "", results: [] } };
   if (name === "close_search") return { state: { searching: false, query: "", results: [] } };
   if (name === "query") {

@@ -60,16 +60,28 @@ test("a hero button opens its title; a hero is kept without an overview when the
   assert.match(go.id, /^[A-Za-z0-9._~-]{1,128}$/);
 });
 
-test("a tab or country change patches the state and the next draw follows it", async () => {
-  assert.deepEqual(await screenEvent({ name: "tab", value: "anime" }), { state: { tab: "anime" } });
-  assert.deepEqual(await screenEvent({ name: "country", value: "kr" }), { state: { country: "kr" } });
-  assert.deepEqual(await screenEvent({ name: "country", value: "zz" }), { state: { country: "all" } });
+test("a tab or country change patches the state, flips the skeleton off, and the next draw follows it", async () => {
+  const done = [{ hide: "loading" }, { show: "content" }];
+  assert.deepEqual(await screenEvent({ name: "tab", value: "anime" }), { state: { tab: "anime" }, ui: done });
+  assert.deepEqual(await screenEvent({ name: "country", value: "kr" }), { state: { country: "kr" }, ui: done });
+  assert.deepEqual(await screenEvent({ name: "country", value: "zz" }), { state: { country: "all" }, ui: done });
   assert.equal(await screenEvent({ name: "tab", value: "nope" }), null);
   assert.equal(await screenEvent({ name: "other" }), null);
   const { tree, calls } = await draw({ tab: "anime", country: "kr" });
   assert.equal(tree.appBar.bottom.value, "anime");
   assert.equal(find(tree, (n) => n.type === "Chips")[0].value, "kr");
   assert.ok(calls.some((c) => /type=3&sub=0&country=2/.test(c.url)));
+});
+
+test("the page carries a hidden skeleton, and the tab bar and chips show it on change", async () => {
+  const { tree } = await draw({});
+  const loading = find(tree, (n) => n.key === "loading")[0];
+  assert.ok(loading && loading.hidden === true, "a hidden loading skeleton is present");
+  assert.ok(find(loading, (n) => n.type === "Skeleton").length >= 3, "the skeleton has placeholder blocks");
+  assert.ok(find(tree, (n) => n.key === "content")[0], "the content is a hideable node");
+  const showLoading = [{ show: "loading" }, { hide: "content" }];
+  assert.deepEqual(tree.appBar.bottom.onChanged, { ui: showLoading, event: "tab" });
+  assert.deepEqual(find(tree, (n) => n.type === "Chips")[0].onChanged, { ui: showLoading, event: "country" });
 });
 
 test("an unreachable site draws an error state, not a crash", async () => {
