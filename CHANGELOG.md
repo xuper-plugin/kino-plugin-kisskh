@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Categorías: the country and type tiles now show a picture (a famous drama or show of each, static, no extra requests; the Filipino tile stays plain)
+
 ## 0.1.0
 
 - New: KissKH in Kino. Asian dramas, series, films and anime with subtitles in several languages: Home rows, a

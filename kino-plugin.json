@@ -1,7 +1,7 @@
 {
   "id": "kisskh",
   "name": "KissKH",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "apiVersion": 25,
   "panel": {
     "label": "KissKH",
@@ -184,7 +184,7 @@
   },
   "signature": {
     "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    "value": "ccc0db6a1a80262dcdd85a0d1dffea17ec921b14f056f81ba908303d2fb0093c9ad25f698c0e131cc88a8dc68ff1a423206086b7a0e1e6812b6502c0588f6b02"
+    "value": "8ecf3a966d0e385ea6b85507e439462beb1f906974a865e7ac96d9f8f8763edd058afb7aeb1655947b0e07c8dc3eb33968b0e7e92375ad2547aa904e7d211908"
   },
   "provides": {
     "catalog": {

@@ -619,10 +619,23 @@ var TYPES = [
   { slug: "movies", type: 2, titleKey: "catMovies" },
   { slug: "anime", type: 3, titleKey: "catAnime" }
 ];
+var TM = "https://image.tmdb.org/t/p/w780";
+var TILE_ART = {
+  "pais.kr": TM + "/3yEHM2HT2vrUtO93YzTJNgEfiZG.jpg",
+  "pais.cn": TM + "/ampkwvfwO7o5YMwYAVPKx1PLDaB.jpg",
+  "pais.jp": TM + "/oPLhHWou5HEB5dhbI2ZFuYQlSKw.jpg",
+  "pais.th": TM + "/st764ocddhbsflFdkMblEMxGejS.jpg",
+  "pais.tw": TM + "/omNNoERrtr7AzjxyUIk3NREa54b.jpg",
+  "pais.west": TM + "/l0qVZIpXtIo7km9u5Yqh0nKPOr5.jpg",
+  "tipo.dramas": TM + "/4ODaZrnKT7iM6sfgDB8ud8FdrVr.jpg",
+  "tipo.movies": TM + "/nSm9cij9VRrGDoZoS16CPnX0FqK.jpg",
+  "tipo.anime": TM + "/2rmK7mnchw9Xr3XdiTFSxTTLXqv.jpg"
+};
+var withArt = (tile, art) => art ? { ...tile, art } : tile;
 function categories(kino) {
   return [
-    ...COUNTRIES.map((c) => ({ id: `pais.${c.slug}`, title: t(c.titleKey, kino), ref: listRef(0, c.country) })),
-    ...TYPES.map((x) => ({ id: `tipo.${x.slug}`, title: t(x.titleKey, kino), ref: listRef(x.type) }))
+    ...COUNTRIES.map((c) => withArt({ id: `pais.${c.slug}`, title: t(c.titleKey, kino), ref: listRef(0, c.country) }, TILE_ART[`pais.${c.slug}`])),
+    ...TYPES.map((x) => withArt({ id: `tipo.${x.slug}`, title: t(x.titleKey, kino), ref: listRef(x.type) }, TILE_ART[`tipo.${x.slug}`]))
   ];
 }
 

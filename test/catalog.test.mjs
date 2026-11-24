@@ -108,3 +108,10 @@ test("Inicio carries the country rows, with colon-free ids", async () => {
   for (const id of ["pais.th.0", "pais.jp.0", "pais.tw.0"]) assert.ok(rows.some((r) => r.id === id), id);
   assert.equal(rows.find((r) => r.id === "pais.th.0").ref, "list:0:5:0:1");
 });
+
+test("categories: every tile has a static https TMDB art picture, except the Filipino one", () => {
+  const { kino } = serve();
+  const tiles = categories(kino);
+  assert.deepEqual(tiles.filter((x) => !x.art).map((x) => x.id), ["pais.ph"]);
+  for (const x of tiles.filter((y) => y.art)) assert.match(x.art, /^https:\/\/image\.tmdb\.org\/t\/p\/w780\/[A-Za-z0-9]+\.jpg$/, x.id);
+});

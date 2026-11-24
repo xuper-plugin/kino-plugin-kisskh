@@ -276,10 +276,30 @@ const TYPES = [
   { slug: "anime", type: 3, titleKey: "catAnime" },
 ];
 
+// ---- categories: a picture for every tile ----
+
+/**
+ * One picture per country and type tile: a well-known title of it, as its TMDB backdrop at w780, each checked with a request (200, image/jpeg). Static on purpose: no extra request at runtime. Keys are the tile ids; the Filipino tile has no art (no recognisable title found).
+ * Kino draws a tile's picture from `art` (any public https image).
+ */
+const TM = "https://image.tmdb.org/t/p/w780";
+const TILE_ART = {
+  "pais.kr": TM + "/3yEHM2HT2vrUtO93YzTJNgEfiZG.jpg",
+  "pais.cn": TM + "/ampkwvfwO7o5YMwYAVPKx1PLDaB.jpg",
+  "pais.jp": TM + "/oPLhHWou5HEB5dhbI2ZFuYQlSKw.jpg",
+  "pais.th": TM + "/st764ocddhbsflFdkMblEMxGejS.jpg",
+  "pais.tw": TM + "/omNNoERrtr7AzjxyUIk3NREa54b.jpg",
+  "pais.west": TM + "/l0qVZIpXtIo7km9u5Yqh0nKPOr5.jpg",
+  "tipo.dramas": TM + "/4ODaZrnKT7iM6sfgDB8ud8FdrVr.jpg",
+  "tipo.movies": TM + "/nSm9cij9VRrGDoZoS16CPnX0FqK.jpg",
+  "tipo.anime": TM + "/2rmK7mnchw9Xr3XdiTFSxTTLXqv.jpg",
+};
+const withArt = (tile, art) => (art ? { ...tile, art } : tile);
+
 /** `categories()`: one tile per country and per type, each opening its "Ver más". */
 export function categories(kino) {
   return [
-    ...COUNTRIES.map((c) => ({ id: `pais.${c.slug}`, title: t(c.titleKey, kino), ref: listRef(0, c.country) })),
-    ...TYPES.map((x) => ({ id: `tipo.${x.slug}`, title: t(x.titleKey, kino), ref: listRef(x.type) })),
+    ...COUNTRIES.map((c) => withArt({ id: `pais.${c.slug}`, title: t(c.titleKey, kino), ref: listRef(0, c.country) }, TILE_ART[`pais.${c.slug}`])),
+    ...TYPES.map((x) => withArt({ id: `tipo.${x.slug}`, title: t(x.titleKey, kino), ref: listRef(x.type) }, TILE_ART[`tipo.${x.slug}`])),
   ];
 }
