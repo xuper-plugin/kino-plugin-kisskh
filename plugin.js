@@ -63,6 +63,7 @@ var WORDS = {
     rowSeries: "Dramas",
     rowMovies: "Pel\xEDculas",
     rowAnime: "Anime",
+    rowAnimeUpdated: "Anime: cap\xEDtulos nuevos",
     catDramas: "Dramas",
     catMovies: "Pel\xEDculas",
     catAnime: "Anime",
@@ -132,6 +133,7 @@ var WORDS = {
     rowSeries: "Dramas",
     rowMovies: "Movies",
     rowAnime: "Anime",
+    rowAnimeUpdated: "Anime: new episodes",
     catDramas: "Dramas",
     catMovies: "Movies",
     catAnime: "Anime",
@@ -466,14 +468,14 @@ var CURATED = {
   mostsearch: { load: mostSearch, titleKey: "rowMostSearch" },
   upcoming: { load: upcoming, titleKey: "rowUpcoming" }
 };
-var listRow = (slug, titleKey, q) => ({ id: `${slug}.${q.type}`, titleKey, q: { status: 0, ...q } });
-var curatedRow = (name) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name });
+var listRow = (slug, titleKey, q, genre) => ({ id: `${slug}.${q.type}`, titleKey, q: { status: 0, ...q }, ...genre ? { genre } : {} });
+var curatedRow = (name, genre) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name, ...genre ? { genre } : {} });
 async function build(def, kino) {
   const items = await cached(kino, "row:" + def.id, async () => def.curated ? (await CURATED[def.curated].load()).map(dress) : (await list({ ...def.q, page: 1 })).items.map(dress));
   const capped = items.slice(0, ROW_CAP);
   if (!capped.length) return null;
   const ref = def.curated ? "cur:" + def.curated : listRef(def.q.type, def.q.country, def.q.status, def.q.order);
-  return { id: def.id, title: t(def.titleKey, kino), items: capped, ref };
+  return { id: def.id, title: t(def.titleKey, kino), items: capped, ref, ...def.genre ? { genre: def.genre } : {} };
 }
 async function rowsOf(kino, defs) {
   const rows = await Promise.all(defs.map((d) => build(d, kino).catch((e) => {
@@ -484,12 +486,15 @@ async function rowsOf(kino, defs) {
 }
 var HOME_ROWS = [
   listRow("novedades", "rowLatest", { type: 0, order: LATEST }),
+  listRow("ultimos", "rowSeries", { type: 1, order: UPDATED }, "series"),
+  listRow("ultimos", "rowAnimeUpdated", { type: 3, order: UPDATED }, "anime"),
+  listRow("ultimos", "rowMovies", { type: 2, order: LATEST }, "peliculas"),
   curatedRow("lastupdate"),
   listRow("mostview.kr", "rowMostViewKr", { type: 0, country: COUNTRY_KR, order: LATEST }),
   listRow("mostview.cn", "rowMostViewCn", { type: 0, country: COUNTRY_CN, order: LATEST }),
   curatedRow("toprating"),
   curatedRow("mostsearch"),
-  curatedRow("anime"),
+  curatedRow("anime", "anime"),
   curatedRow("upcoming"),
   listRow("pais.th", "rowThai", { type: 0, country: 5, order: LATEST }),
   listRow("pais.jp", "rowJapanese", { type: 0, country: 3, order: LATEST }),

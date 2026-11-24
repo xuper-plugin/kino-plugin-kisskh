@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Home: typed rows for Kino's Home by categories: the latest updated dramas (series), new anime episodes (anime) and the latest movies (peliculas); the Anime shelf row is typed anime too
+
 ## 0.1.2
 
 - Categorías: the country and type tiles now show a picture (a famous drama or show of each, static, no extra requests; the Filipino tile stays plain)

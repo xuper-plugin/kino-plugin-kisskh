@@ -83,8 +83,8 @@ const CURATED = {
 };
 
 /** A list-backed row: id "<slug>.<type>" (no colon; the colon form stays in `ref`). */
-const listRow = (slug, titleKey, q) => ({ id: `${slug}.${q.type}`, titleKey, q: { status: 0, ...q } });
-const curatedRow = (name) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name });
+const listRow = (slug, titleKey, q, genre) => ({ id: `${slug}.${q.type}`, titleKey, q: { status: 0, ...q }, ...(genre ? { genre } : {}) });
+const curatedRow = (name, genre) => ({ id: name, titleKey: CURATED[name].titleKey, curated: name, ...(genre ? { genre } : {}) });
 
 async function build(def, kino) {
   const items = await cached(kino, "row:" + def.id, async () => (def.curated
@@ -93,7 +93,7 @@ async function build(def, kino) {
   const capped = items.slice(0, ROW_CAP);
   if (!capped.length) return null;
   const ref = def.curated ? "cur:" + def.curated : listRef(def.q.type, def.q.country, def.q.status, def.q.order);
-  return { id: def.id, title: t(def.titleKey, kino), items: capped, ref };
+  return { id: def.id, title: t(def.titleKey, kino), items: capped, ref, ...(def.genre ? { genre: def.genre } : {}) };
 }
 
 /** The rows of [defs] fetched side by side; one that fails or comes back empty is left out. */
@@ -105,14 +105,20 @@ async function rowsOf(kino, defs) {
   return rows.filter(Boolean);
 }
 
+// The rows by type carry the type Kino's Home by categories files them under (series, peliculas, anime): the newest first (the
+// site's "recently updated" order for series and anime, the latest releases for movies). The mixed rows (all types, by country) stay
+// untyped: each title goes where its own kind says.
 const HOME_ROWS = [
   listRow("novedades", "rowLatest", { type: 0, order: LATEST }),
+  listRow("ultimos", "rowSeries", { type: 1, order: UPDATED }, "series"),
+  listRow("ultimos", "rowAnimeUpdated", { type: 3, order: UPDATED }, "anime"),
+  listRow("ultimos", "rowMovies", { type: 2, order: LATEST }, "peliculas"),
   curatedRow("lastupdate"),
   listRow("mostview.kr", "rowMostViewKr", { type: 0, country: COUNTRY_KR, order: LATEST }),
   listRow("mostview.cn", "rowMostViewCn", { type: 0, country: COUNTRY_CN, order: LATEST }),
   curatedRow("toprating"),
   curatedRow("mostsearch"),
-  curatedRow("anime"),
+  curatedRow("anime", "anime"),
   curatedRow("upcoming"),
   listRow("pais.th", "rowThai", { type: 0, country: 5, order: LATEST }),
   listRow("pais.jp", "rowJapanese", { type: 0, country: 3, order: LATEST }),

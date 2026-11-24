@@ -28,7 +28,7 @@ test("home shows the site's shelves with colon-free ids and valid refs", async (
   const { kino } = fakeKino({ fetch: route() });
   globalThis.kino = kino;
   const rows = await home(kino, { homeRows: true });
-  assert.deepEqual(rows.map((r) => r.id), ["novedades.0", "lastupdate", "mostview.kr.0", "mostview.cn.0", "toprating", "mostsearch", "anime", "upcoming", "pais.th.0", "pais.jp.0", "pais.tw.0"]);
+  assert.deepEqual(rows.map((r) => r.id), ["novedades.0", "ultimos.1", "ultimos.3", "ultimos.2", "lastupdate", "mostview.kr.0", "mostview.cn.0", "toprating", "mostsearch", "anime", "upcoming", "pais.th.0", "pais.jp.0", "pais.tw.0"]);
   checkRows(rows);
 });
 
@@ -52,7 +52,7 @@ test("a failed curated endpoint drops only its row", async () => {
   });
   globalThis.kino = kino;
   const rows = await home(kino, { homeRows: true });
-  assert.equal(rows.length, 9);
+  assert.equal(rows.length, 12);
   assert.ok(!rows.some((r) => r.id === "toprating" || r.id === "anime"));
   const dramas = await section(kino, {}, "dramas");
   assert.ok(dramas.rows.length >= 4 && !dramas.rows.some((r) => r.id === "toprating"));

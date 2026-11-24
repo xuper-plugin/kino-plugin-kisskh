@@ -115,3 +115,16 @@ test("categories: every tile has a static https TMDB art picture, except the Fil
   assert.deepEqual(tiles.filter((x) => !x.art).map((x) => x.id), ["pais.ph"]);
   for (const x of tiles.filter((y) => y.art)) assert.match(x.art, /^https:\/\/image\.tmdb\.org\/t\/p\/w780\/[A-Za-z0-9]+\.jpg$/, x.id);
 });
+
+test("Inicio has a typed row for series, anime and movies (what Kino's Home by categories reads), the mixed rows stay untyped", async () => {
+  const { kino } = serve();
+  globalThis.kino = kino;
+  const rows = await home(kino, { homeRows: true });
+  const typeOf = (id) => (rows.find((r) => r.id === id) || {}).genre;
+  assert.equal(typeOf("ultimos.1"), "series");
+  assert.equal(typeOf("ultimos.2"), "peliculas");
+  assert.equal(typeOf("ultimos.3"), "anime");
+  assert.equal(typeOf("anime"), "anime");
+  assert.equal(typeOf("novedades.0"), undefined);
+  assert.equal(new Set(rows.map((r) => r.id)).size, rows.length);
+});
