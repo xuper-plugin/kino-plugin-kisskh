@@ -1,4 +1,5 @@
 // KissKH: thin wiring of every export Kino calls; the logic lives in the modules.
+import { catalogDoor } from "./door.js";
 import { t, tf } from "./i18n.js";
 import * as catalog from "./catalog.js";
 import * as detail from "./detail.js";
@@ -18,6 +19,9 @@ globalThis.__kinoDropPendingFetches = true;
 const getKino = () => globalThis.kino;
 
 /** `search(query)`: the site's matches; inside a "Ver más" page (scopedSearch, `query.within`), that page's matching titles. */
+// The catalog door (Kino's plugin protocol): Da-Video and the author's other plugins find titles here.
+export const proto_catalog_search = catalogDoor(search);
+
 export async function search(query) {
   const kino = getKino();
   const q = typeof query === "string" ? query : (query && query.q) || "";

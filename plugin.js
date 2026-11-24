@@ -1,3 +1,37 @@
+// src/door.js
+var CATALOG_MAX = 40;
+var OVERVIEW_MAX = 300;
+var HTTPS = /^https:\/\//;
+function catalogItems(found) {
+  const out = [];
+  const list2 = Array.isArray(found) ? found : found && Array.isArray(found.items) ? found.items : [];
+  for (const it of list2) {
+    if (out.length >= CATALOG_MAX) break;
+    if (!it || typeof it.id !== "string" || !it.id || typeof it.ref !== "string" || !it.ref || typeof it.title !== "string" || !it.title) continue;
+    const item2 = { id: it.id, ref: it.ref, title: it.title, kind: typeof it.kind === "string" && it.kind ? it.kind : "movie" };
+    if (typeof it.poster === "string" && HTTPS.test(it.poster)) item2.poster = it.poster;
+    if (typeof it.backdrop === "string" && HTTPS.test(it.backdrop)) item2.backdrop = it.backdrop;
+    if (it.year !== void 0 && it.year !== null && String(it.year)) item2.year = String(it.year);
+    if (typeof it.overview === "string" && it.overview.trim()) item2.overview = it.overview.trim().slice(0, OVERVIEW_MAX);
+    const tmdb = it.ids && Number.isInteger(it.ids.tmdb) ? it.ids.tmdb : Number.isInteger(it.tmdb) ? it.tmdb : 0;
+    if (tmdb > 0) item2.tmdb = tmdb;
+    out.push(item2);
+  }
+  return out;
+}
+function catalogQuery(arg) {
+  const q = String(arg && arg.q || "").trim().slice(0, 200);
+  const type = arg && (arg.type === "movie" || arg.type === "series") ? arg.type : "any";
+  return { q, type, season: 0, episode: 0, tmdbId: 0, year: 0, originalTitle: "", altTitles: [], cursor: null };
+}
+function catalogDoor(search4) {
+  return async (arg) => {
+    const query = catalogQuery(arg);
+    if (!query.q) return [];
+    return catalogItems(await search4(query));
+  };
+}
+
 // src/i18n.js
 var WORDS = {
   es: {
@@ -2262,6 +2296,7 @@ async function playerEvent() {
 // src/plugin.js
 globalThis.__kinoDropPendingFetches = true;
 var getKino = () => globalThis.kino;
+var proto_catalog_search = catalogDoor(search3);
 async function search3(query) {
   const kino = getKino();
   const q = typeof query === "string" ? query : query && query.q || "";
@@ -2352,6 +2387,7 @@ export {
   panel,
   panelAction,
   playerEvent,
+  proto_catalog_search,
   resolve3 as resolve,
   screen,
   screenEvent,

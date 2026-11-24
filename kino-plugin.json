@@ -1,7 +1,7 @@
 {
   "id": "kisskh",
   "name": "KissKH",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "apiVersion": 25,
   "panel": {
     "label": "KissKH",
@@ -184,6 +184,33 @@
   },
   "signature": {
     "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    "value": "c9fd893e87a2605844dd910d704d7b0c0ec656877f0ec06092751b6892bfa9e56a90485f4cc0c7686fe45e10cb89ede36c9172814574775d58596df8d505bd0f"
+    "value": "ccc0db6a1a80262dcdd85a0d1dffea17ec921b14f056f81ba908303d2fb0093c9ad25f698c0e131cc88a8dc68ff1a423206086b7a0e1e6812b6502c0588f6b02"
+  },
+  "provides": {
+    "catalog": {
+      "summary": "Titles this plugin finds, for the author's other plugins",
+      "calls": {
+        "search": {
+          "in": {
+            "q": "string",
+            "type": "string?"
+          },
+          "out": "Item[]"
+        }
+      },
+      "types": {
+        "Item": {
+          "id": "string",
+          "ref": "string",
+          "title": "string",
+          "kind": "string",
+          "poster": "string?",
+          "backdrop": "string?",
+          "year": "string?",
+          "overview": "string?",
+          "tmdb": "number?"
+        }
+      }
+    }
   }
 }
