@@ -52,7 +52,7 @@ function parseRef(ref) {
   return null;
 }
 
-/** `browse(ref, cursor)`: one "Ver más" page, `cursor` the next page number (a string) while more exist. */
+/** `browse(ref, cursor)`: one "Ver más" page; `next` (Kino reads it, never `cursor`) is the following page number (a string) while more exist. */
 export async function browse(kino, ref, cursor) {
   const cur = /^cur:([a-z]+)$/.exec(String(ref || ""));
   if (cur && Object.prototype.hasOwnProperty.call(CURATED, cur[1])) {
@@ -64,7 +64,7 @@ export async function browse(kino, ref, cursor) {
   const page = n >= 1 && n <= MAX_PAGE ? n : 1;
   const r = await list({ ...q, page });
   const items = r.items.map(dress);
-  return items.length && page < MAX_PAGE && page * r.pageSize < r.totalCount ? { items, cursor: String(page + 1) } : { items };
+  return items.length && page < MAX_PAGE && page * r.pageSize < r.totalCount ? { items, next: String(page + 1) } : { items };
 }
 
 const NEWEST = 3; // the site's "recently added" order

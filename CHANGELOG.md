@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Home rows open their full list with Ver más: a row's next page is answered as `next`, the field Kino reads (it was `cursor`, so Ver más stopped after the first page)
+
 ## 0.1.3
 
 - Home: typed rows for Kino's Home by categories: the latest updated dramas (series), new anime episodes (anime) and the latest movies (peliculas); the Anime shelf row is typed anime too

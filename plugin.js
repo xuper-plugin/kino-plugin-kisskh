@@ -454,7 +454,7 @@ async function browse(kino, ref, cursor) {
   const page = n >= 1 && n <= MAX_PAGE ? n : 1;
   const r = await list({ ...q, page });
   const items = r.items.map(dress);
-  return items.length && page < MAX_PAGE && page * r.pageSize < r.totalCount ? { items, cursor: String(page + 1) } : { items };
+  return items.length && page < MAX_PAGE && page * r.pageSize < r.totalCount ? { items, next: String(page + 1) } : { items };
 }
 var NEWEST = 3;
 var UPDATED = 2;

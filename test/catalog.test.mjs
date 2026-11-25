@@ -27,16 +27,22 @@ test("section tabs query their type", async () => {
   assert.equal((await section(kino, {}, "nonsense")).tab, "inicio");
 });
 
-test("browse pages by cursor with the ref's list params", async () => {
+test("browse answers next (the page Kino asks for after) with the ref's list params", async () => {
   const { kino, calls } = serve();
   globalThis.kino = kino;
   const r = await browse(kino, "list:1:0:0:1", "2");
   const p = params(calls[0].url);
   assert.deepEqual([p.page, p.type, p.country, p.status, p.order], ["2", "1", "0", "0", "1"]);
   assert.ok(r.items.length && r.items[0].ref.startsWith("d:"));
-  assert.equal(r.cursor, "3");
+  assert.equal(r.next, "3");
+  assert.equal(r.cursor, undefined);
+  const first = await browse(kino, "list:1:0:0:1", null);
+  assert.equal(first.next, "2");
+  const second = await browse(kino, "list:1:0:0:1", first.next);
+  assert.equal(params(calls.at(-1).url).page, "2");
+  assert.ok(second.items.length);
   const last = await browse(kino, "list:1:0:0:1", "1105");
-  assert.equal(last.cursor, undefined);
+  assert.equal(last.next, undefined);
   await assert.rejects(() => browse(kino, "bogus", null));
 });
 

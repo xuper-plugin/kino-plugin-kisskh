@@ -86,7 +86,7 @@ test("a curated shelf opens as a one-page Ver más", async () => {
   const { kino } = fakeKino({ fetch: route() });
   globalThis.kino = kino;
   const r = await browse(kino, "cur:toprating", null);
-  assert.ok(r.items.length && r.cursor === undefined);
+  assert.ok(r.items.length && r.next === undefined && r.cursor === undefined);
   assert.deepEqual((await browse(kino, "cur:toprating", "2")).items, []);
   await assert.rejects(() => browse(kino, "cur:nope", null));
 });
